@@ -21,6 +21,8 @@ import java.net.URLEncoder
 import java.text.SimpleDateFormat
 import java.util.Date
 
+import water.H2O
+
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -124,7 +126,12 @@ private[spark] class Master(
     webUi.bind()
     masterWebUiUrl = "http://" + masterPublicAddress + ":" + webUi.boundPort
     context.system.scheduler.schedule(0 millis, WORKER_TIMEOUT millis, self, CheckForWorkerTimeOut)
-
+    // Dummy way to launch H2O
+    if (conf.getOption("spark.h2o").isDefined) {
+      logInfo("Launching H2O at worker...");
+      H2O.main(new Array[String](0))
+      H2O.finalizeRequest()
+    }
     masterMetricsSystem.registerSource(masterSource)
     masterMetricsSystem.start()
     applicationMetricsSystem.start()

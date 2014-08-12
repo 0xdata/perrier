@@ -21,6 +21,8 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 
+import water.H2O
+
 import scala.collection.mutable.HashMap
 import scala.concurrent.duration._
 import scala.language.postfixOps
@@ -135,6 +137,12 @@ private[spark] class Worker(
       host, port, cores, Utils.megabytesToString(memory)))
     logInfo("Spark home: " + sparkHome)
     createWorkDir()
+    // Dummy way of launching H2O
+    if (conf.getOption("spark.h2o").isDefined) {
+      logInfo("Launching H2O at worker...");
+      H2O.main(new Array[String](0))
+      H2O.finalizeRequest()
+    }
     context.system.eventStream.subscribe(self, classOf[RemotingLifecycleEvent])
     webUi = new WorkerWebUI(this, workDir, webUiPort)
     webUi.bind()
