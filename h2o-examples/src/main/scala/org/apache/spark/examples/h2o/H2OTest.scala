@@ -22,7 +22,8 @@ object H2OTest {
     import sqlContext._ // import implicit conversions
     val table = rawdata.map(_.split(",")).map(line => parse(line))
     table.registerTempTable("prostate")
-    table.count()
+    val pz0:Array[Prostate] = table.take(3) // sample first 3 rows; row zero is the header
+
 
     // Map data into H2O frame and run an algorithm
     val hc = new H2OContext(sc)
@@ -30,7 +31,7 @@ object H2OTest {
     import hc._
     // Register RDD as a frame which will cause data transfer
     //  - This needs RDD -> H2ORDD implicit conversion, H2ORDDLike contains registerFrame
-    table.registerFrame("prostate.hex")   // Should return H2ORDD reference?
+    val h2oFrame = hc.createH2ORDD(table, "prostate.hex")
 
     sc.stop()
   }

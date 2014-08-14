@@ -4,8 +4,7 @@ import scala.language.implicitConversions
 import org.apache.spark.SparkContext
 import org.apache.spark.annotation.AlphaComponent
 import org.apache.spark.rdd.{H2ORDD, RDD}
-
-import scala.reflect.runtime.universe.TypeTag
+import scala.reflect.ClassTag
 
 /**
  * Simple H2O context motivated by SQLContext.
@@ -18,17 +17,17 @@ class H2OContext(@transient val sparkContext: SparkContext)
   with H2OConf
   with Serializable {
 
-  /** Register RDD inside H2O. */
-  def registerRDDAsFrame(h2oRDD: H2ORDD, frameName: String): Unit = {
-    println( s"Registering $h2oRDD as frame $frameName")
+  private def perPartition[T]( idx: Int, it: Iterator[T] ): Iterator[T] = {
+    println(idx+" size:" + it.size)
+    it
   }
 
   // Implicit conversion creating hiding H2O like RDD.
   // Needs import: import scala.language.implicitConversions
-  implicit def createH2ORDD[A <: Product: TypeTag](rdd: RDD[A]): H2ORDD = {
-    // Dummy get type name
-    val tt = implicitly[TypeTag[A]]
-    println(s"implicit conversion createH2ORDD[$tt](rdd=$rdd)")
-    new H2ORDD(this, this.sparkContext)
+  def createH2ORDD[A: ClassTag](rdd: RDD[A], name: String): H2ORDD[A] = {
+    val h2ordd = new H2ORDD(this, this.sparkContext, rdd)
+    val x = h2ordd.mapPartitionsWithIndex(perPartition[A], preservesPartitioning=true)
+    x.count()
+    h2ordd
   }
 }
