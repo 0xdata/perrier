@@ -128,7 +128,7 @@ private[spark] class Master(
     context.system.scheduler.schedule(0 millis, WORKER_TIMEOUT millis, self, CheckForWorkerTimeOut)
     // Dummy way to launch H2O
     if (conf.getOption("spark.h2o").isDefined) {
-      logInfo("Launching H2O at worker...");
+      logInfo("Launching H2O at master...");
       H2O.main(new Array[String](0))
       H2O.finalizeRequest()
     }
