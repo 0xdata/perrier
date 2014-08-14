@@ -24,10 +24,4 @@ echo ============================
 echo .   SHELL
 echo .
 ../bin/spark-shell
-#CLASSPATH=".;C:\users\cliffc\Desktop\perrier\conf;C:\users\cliffc\Desktop\perrier\assembly\target\scala-2.10\spark-assembly-1.1.0-SNAPSHOT-hadoop2.4.0.jar"
-#JAVA_OPTS="-XX:MaxPermSize=128m -Djline.terminal=unix -Djava.library.path= -Xms512m -Xmx512m"
-#SPARK_ENV_LOADED=1
-#SPARK_HOME=/cygdrive/c/users/cliffc/Desktop/perrier
-#SPARK_SUBMIT_OPTS= -Djline.terminal=unix
-#SPARK_TOOLS_JAR=/cygdrive/c/users/cliffc/Desktop/perrier/tools/target/spark-tools_2.10-1.1.0-SNAPSHOT.jar
-#java -cp ".;C:\users\cliffc\Desktop\perrier\conf;C:\users\cliffc\Desktop\perrier\assembly\target\scala-2.10\spark-assembly-1.1.0-SNAPSHOT-hadoop2.4.0.jar" -XX:MaxPermSize=128m -Djline.terminal=unix -Djava.library.path= -Xms512m -Xmx512m org.apache.spark.deploy.SparkSubmit --class org.apache.spark.repl.Main spark-shell
+

@@ -16,12 +16,13 @@ object H2OTest {
 
     // Load raw data
     val parse = ProstateParse
-    val rawdata = sc.textFile("/Users/michal/Devel/projects/h2o/repos/NEW.h2o.github/smalldata/prostate/prostate.csv.zip")
+    val rawdata = sc.textFile("/mnt/hgfs/Desktop/h2o/smalldata/logreg/prostate.csv",2)
     // Parse raw data per line and produce
     val sqlContext = new SQLContext(sc)
     import sqlContext._ // import implicit conversions
     val table = rawdata.map(_.split(",")).map(line => parse(line))
     table.registerTempTable("prostate")
+    table.count()
 
     // Map data into H2O frame and run an algorithm
     val hc = new H2OContext(sc)
@@ -50,7 +51,7 @@ case class Prostate(id      :Option[Int],
 object ProstateParse extends Serializable {
   def apply(row: Array[String]): Prostate = {
     import SchemaUtils._
-    return Prostate(int(row(0)), int(row(1)), int(row(2)), int(row(3)), int(row(4)), int(row(5)), float(row(6)), float(row(7)), int(row(8)) )
+    Prostate(int(row(0)), int(row(1)), int(row(2)), int(row(3)), int(row(4)), int(row(5)), float(row(6)), float(row(7)), int(row(8)) )
   }
 }
 

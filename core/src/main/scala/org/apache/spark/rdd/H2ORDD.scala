@@ -48,7 +48,7 @@ trait H2ORDDLike {
   private[spark] def h2oRDD: H2ORDD
 
   def registerFrame(frameName: String): Unit = {
-    println(s"registerFram(frameName='$frameName')")
+    println(s"registerFrame(frameName='$frameName')")
     hc.registerRDDAsFrame(h2oRDD, frameName)
   }
 }
