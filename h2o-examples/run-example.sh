@@ -18,4 +18,4 @@ echo "  Using master : $EXAMPLE_MASTER"
 echo "  Using example: $EXAMPLE"
 echo "---------"
 
-( cd ../; bin/spark-submit --master $EXAMPLE_MASTER --class $EXAMPLE h2o-examples/target/spark-h2o-examples_2.10-1.1.0-SNAPSHOT.jar )
+( cd ../; bin/spark-submit --verbose --master $EXAMPLE_MASTER --class $EXAMPLE h2o-examples/target/spark-h2o-examples_2.10-1.1.0-SNAPSHOT.jar )
