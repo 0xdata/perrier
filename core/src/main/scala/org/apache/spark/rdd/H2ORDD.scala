@@ -20,12 +20,12 @@ import scala.reflect.ClassTag
  *
  */
 private[spark]
-class H2ORDD[A :ClassTag](val h2oName: String, val colNames: Array[String], val colTypes: Array[String],
+class H2ORDD[A :ClassTag](val h2oName: String, val colNames: Array[String],
                           @transient val hc: H2OContext, @transient sc: SparkContext, rdd: RDD[A])
   extends RDD[A](sc, Nil) {
 
   /** H2O data Frame.  Lazily set from null to not-null on first use */
-  @transient val fr: water.fvec.Frame = new water.fvec.Frame()
+  @transient val fr: water.fvec.Frame = new water.fvec.Frame(h2oName)
 
   /**
    * :: DeveloperApi ::
