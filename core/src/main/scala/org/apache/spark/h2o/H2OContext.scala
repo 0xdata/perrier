@@ -29,10 +29,11 @@ class H2OContext(@transient val sparkContext: SparkContext)
   // Implicit conversion creating hiding H2O like RDD.
   // Needs import: import scala.language.implicitConversions
   def createH2ORDD[A: TypeTag: ClassTag](rdd: RDD[A], name: String): H2ORDD[A] = {
-    val tt = typeOf[A].members.filter(!_.isMethod)
-    val ts = tt.foreach(sym => println(sym+" "+sym.typeSignature))
+    val tt = typeOf[A].members.sorted.filter(!_.isMethod)
+    val names = tt.map(_.name.toString).toArray
+    val types = tt.map(_.typeSignature.toString).toArray
 
-    val h2ordd = new H2ORDD(name, this, this.sparkContext, rdd)
+    val h2ordd = new H2ORDD(name, names, types, this, this.sparkContext, rdd)
     sparkContext.runJob(h2ordd, perPartition[A](h2ordd) _) // eager, not lazy, evaluation
     //h2ordd.fr.finizalizePartialFrame();
     h2ordd
