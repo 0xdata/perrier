@@ -9,7 +9,10 @@ object H2OTest {
   def main(args: Array[String]) {
 
     // Create application configuration
-    val sparkConf = new SparkConf().setMaster("local").setAppName("H2O Integration Examaple")
+    val sparkConf = new SparkConf().setMaster("local").setAppName("H2O Integration Example")
+    // Start H2O-in-Spark
+    water.H2O.main(args)
+    water.H2O.waitForCloudSize(1/*One H2ONode to match the one Spark local-mode worker*/,1000)
 
     // Create Spark context which will drive computation
     val sc = new SparkContext(sparkConf)
@@ -22,18 +25,17 @@ object H2OTest {
     import sqlContext._ // import implicit conversions
     val table = rawdata.map(_.split(",")).map(line => parse(line))
     table.registerTempTable("prostate")
-    val pz0:Array[Prostate] = table.take(3) // sample first 3 rows; row zero is the header
-
 
     // Map data into H2O frame and run an algorithm
     val hc = new H2OContext(sc)
 
-    import hc._
     // Register RDD as a frame which will cause data transfer
     //  - This needs RDD -> H2ORDD implicit conversion, H2ORDDLike contains registerFrame
     val h2oFrame = hc.createH2ORDD(table, "prostate.hex")
 
+    // Stop Spark local worker; stop H2O worker
     sc.stop()
+    water.H2O.exit(0)
   }
 }
 
