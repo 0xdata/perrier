@@ -120,6 +120,11 @@
                   <resource>log4j.properties</resource>
                 </transformer>
               </transformers>
+              <artifactSet>
+                <excludes>
+                  <exclude>*</exclude>
+                </excludes>
+              </artifactSet>
             </configuration>
           </execution>
         </executions>
