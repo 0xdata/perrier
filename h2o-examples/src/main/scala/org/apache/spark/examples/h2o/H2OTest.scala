@@ -3,23 +3,22 @@ package org.apache.spark.examples.h2o
 import org.apache.spark.h2o.H2OContext
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.{SparkContext, SparkConf}
+import water.util.Log
 
 object H2OTest {
 
   def main(args: Array[String]) {
 
-    // Create application configuration
-    val sparkConf = new SparkConf().setMaster("local").setAppName("H2O Integration Example")
+    // Create Spark context which will drive computation
+    val localDebug = true
+    val sc = createSparkContext(if (localDebug)"local" else "spark://localhost:7077" )
     // Start H2O-in-Spark
     water.H2O.main(args)
     water.H2O.waitForCloudSize(1/*One H2ONode to match the one Spark local-mode worker*/,1000)
 
-    // Create Spark context which will drive computation
-    val sc = new SparkContext(sparkConf)
-
     // Load raw data
     val parse = ProstateParse
-    val rawdata = sc.textFile("/mnt/hgfs/Desktop/h2o/smalldata/logreg/prostate.csv",2)
+    val rawdata = sc.textFile("h2o-examples/smalldata/prostate.csv",2)
     // Parse raw data per line and produce
     val sqlContext = new SQLContext(sc)
     import sqlContext._ // import implicit conversions
@@ -36,6 +35,21 @@ object H2OTest {
     // Stop Spark local worker; stop H2O worker
     sc.stop()
     water.H2O.exit(0)
+  }
+
+  private def createSparkContext(sparkMaster:String = null): SparkContext = {
+    val local = sparkMaster == null
+    // Create application configuration
+    val master = if (local) "local" else sparkMaster
+    val conf = new SparkConf()
+      //.setMaster(master)
+      //.setAppName("H2O Integration Example")
+      //.set("spark.executor.memory", "1g")
+    //if (!local) // Run 'sbt assembly to produce target/scala-2.10/h2o-sparkling-demo-assembly-1.0.jar
+    //  conf.setJars(Seq("h2o-examples/target/spark-h2o-examples_2.10-1.1.0-SNAPSHOT.jar"))
+
+    Log.info("Creating " + (if (local) "LOCAL" else "REMOTE ("+master+")") + " Spark context." )
+    new SparkContext(conf)
   }
 }
 
