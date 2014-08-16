@@ -10,8 +10,7 @@ object H2OTest {
   def main(args: Array[String]) {
 
     // Create Spark context which will drive computation
-    val localDebug = true
-    val sc = createSparkContext(if (localDebug)"local" else "spark://localhost:7077" )
+    val sc = createSparkContext()
     // Start H2O-in-Spark
     water.H2O.main(args)
     water.H2O.waitForCloudSize(1/*One H2ONode to match the one Spark local-mode worker*/,1000)
@@ -38,17 +37,13 @@ object H2OTest {
   }
 
   private def createSparkContext(sparkMaster:String = null): SparkContext = {
-    val local = sparkMaster == null
     // Create application configuration
-    val master = if (local) "local" else sparkMaster
     val conf = new SparkConf()
-      //.setMaster(master)
-      //.setAppName("H2O Integration Example")
+      .setAppName("H2O Integration Example")
       //.set("spark.executor.memory", "1g")
     //if (!local) // Run 'sbt assembly to produce target/scala-2.10/h2o-sparkling-demo-assembly-1.0.jar
     //  conf.setJars(Seq("h2o-examples/target/spark-h2o-examples_2.10-1.1.0-SNAPSHOT.jar"))
-
-    Log.info("Creating " + (if (local) "LOCAL" else "REMOTE ("+master+")") + " Spark context." )
+    if (System.getProperty("spark.master")==null) conf.setMaster("local")
     new SparkContext(conf)
   }
 }
