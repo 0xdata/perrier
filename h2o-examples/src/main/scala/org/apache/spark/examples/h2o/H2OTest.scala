@@ -3,14 +3,16 @@ package org.apache.spark.examples.h2o
 import org.apache.spark.h2o.H2OContext
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.{SparkContext, SparkConf}
-import water.util.Log
 
 object H2OTest {
 
   def main(args: Array[String]) {
 
     // Create Spark context which will drive computation
+    // By default we use local spark context (which is useful for development)
+    // but for cluster spark context, you should pass VM options -Dspark.master=spark://localhost:7077
     val sc = createSparkContext()
+
     // Start H2O-in-Spark
     water.H2O.main(args)
     water.H2O.waitForCloudSize(1/*One H2ONode to match the one Spark local-mode worker*/,1000)
