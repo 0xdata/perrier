@@ -18,24 +18,30 @@ class H2OContext(@transient val sparkContext: SparkContext)
   with H2OConf
   with Serializable {
 
-  private def perPartition[A: ClassTag]( h2ordd: H2ORDD[A] ) ( context: TaskContext, it: Iterator[A] ): Int = {
-    println(context.partitionId+", name: "+h2ordd.h2oName)
+  private def perPartition[A: ClassTag]( h2ordd: H2ORDD[A] ) ( context: TaskContext, it: Iterator[A] ): (Int,Long) = {
     val jc = implicitly[ClassTag[A]].runtimeClass
     val flds = h2ordd.colNames.map(name => { val fld = jc.getDeclaredField(name); fld.setAccessible(true); fld }).toArray
     val prims= flds.map(_.getType.isPrimitive)
     val opts = flds.map(_.getType.isAssignableFrom(classOf[Option[_]]))
-    val nums = flds.map(_.getType.isAssignableFrom(classOf[Number]))
-    it.foreach(row => {
-      val ds = for( i <- 0 until flds.length ) yield {
-        if( prims(i) ) flds(i).getDouble(row)
-        else if( opts(i) ) flds(i).get(row).asInstanceOf[Option[_]].getOrElse(Double.NaN)
-        else if( nums(i) ) flds(i).get(row).asInstanceOf[Number].doubleValue
-        else Double.NaN
+    // A place to record all the data in this partition
+    val nchks= water.fvec.Frame.createNewChunks(h2ordd.h2oName,context.partitionId)
+    it.foreach(row => {                 // For all rows...
+      for( i <- 0 until flds.length ) { // For all fields...
+        nchks(i).addNum(                // Copy numeric data from fields to NewChunks
+          if( prims(i) ) flds(i).getDouble(row)
+          else {
+            var x = flds(i).get(row)
+            var y = if( opts(i) ) x.asInstanceOf[Option[_]].getOrElse(Double.NaN) else x
+            if( y.isInstanceOf[Number] ) y.asInstanceOf[Number].doubleValue
+            else Double.NaN
+          }
+        )
       }
-      ds
     })
-
-    context.partitionId
+    // Compress & write out the Partition/Chunks
+    water.fvec.Frame.closeNewChunks(nchks)
+    // Return Partition# and rows in this Partition
+    (context.partitionId,nchks(0).len)
   }
 
   // Returns the original RDD (evaluated), and as a side-effect makes an H2O Frame with the RDD data
@@ -50,7 +56,9 @@ class H2OContext(@transient val sparkContext: SparkContext)
     h2ordd.fr.preparePartialFrame(names)
 
     // Parallel-fill the H2O data Chunks
-    sparkContext.runJob(h2ordd, perPartition[A](h2ordd) _) // eager, not lazy, evaluation
+    val rows = sparkContext.runJob(h2ordd, perPartition[A](h2ordd) _) // eager, not lazy, evaluation
+    val res = new Array[Long](rdd.partitions.size)
+    rows.foreach{ case(cidx,nrows) => res(cidx) = nrows }
 
     // Add Vec headers per-Chunk, and finalize the H2O Frame
     //h2ordd.fr.finizalizePartialFrame()
