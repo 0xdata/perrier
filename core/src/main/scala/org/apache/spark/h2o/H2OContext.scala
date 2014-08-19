@@ -61,7 +61,7 @@ class H2OContext(@transient val sparkContext: SparkContext)
     rows.foreach{ case(cidx,nrows) => res(cidx) = nrows }
 
     // Add Vec headers per-Chunk, and finalize the H2O Frame
-    //h2ordd.fr.finizalizePartialFrame()
+    h2ordd.fr.finalizePartialFrame(res)
     h2ordd
   }
 }

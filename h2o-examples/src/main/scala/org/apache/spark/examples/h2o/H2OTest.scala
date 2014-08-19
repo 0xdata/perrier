@@ -14,7 +14,7 @@ object H2OTest {
     val sc = createSparkContext()
 
     // Start H2O-in-Spark
-    water.H2O.main(args)
+    water.H2OApp.main2("../h2o-dev")
     water.H2O.waitForCloudSize(1/*One H2ONode to match the one Spark local-mode worker*/,1000)
 
     // Load raw data
@@ -34,8 +34,8 @@ object H2OTest {
     val h2oFrame = hc.createH2ORDD(table, "prostate.hex")
 
     // Stop Spark local worker; stop H2O worker
-    sc.stop()
-    water.H2O.exit(0)
+    //sc.stop()
+    //water.H2O.exit(0)
   }
 
   private def createSparkContext(sparkMaster:String = null): SparkContext = {
