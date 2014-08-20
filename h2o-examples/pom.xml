@@ -143,6 +143,9 @@
                 </transformer>
               </transformers>
               <artifactSet>
+                <includes>
+                  <include>ai.h2o:*</include>
+                </includes>
                 <excludes>
                   <exclude>*</exclude>
                 </excludes>
