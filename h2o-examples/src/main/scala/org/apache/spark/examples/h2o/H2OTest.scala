@@ -36,11 +36,10 @@ object H2OTest {
     //  - This needs RDD -> H2ORDD implicit conversion, H2ORDDLike contains registerFrame
     val h2oFrame = hc.createH2ORDD(table, "prostate.hex")
 
-    // Build a KMeansV2 model
-    val kv2 = new KMeansV2()
+    // Build a KMeansV2 model, setting model parameters via a Properties
     val props = new Properties
-    for ((k,v) <- Map("K"->"3","normalize"->"true","src"->h2oFrame.fr._key.toString)) props.setProperty(k,v)
-    val job = kv2.fillFromParms(props).createImpl
+    for ((k,v) <- Map("K"->"3")) props.setProperty(k,v)
+    val job = new KMeansV2().fillFromParms(props).createImpl(h2oFrame.fr)
     val kmm = job.train().get()
     job.remove()
     // Print the JSON model
