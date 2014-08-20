@@ -46,8 +46,30 @@
       </dependencies>
     </profile>
   </profiles>
+
+  <repositories>
+    <repository>
+      <id>oss-sonatype</id>
+      <name>oss-sonatype</name>
+      <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
+  </repositories>
   
   <dependencies>
+    <dependency>
+      <groupId>ai.h2o</groupId>
+      <artifactId>h2o-app</artifactId>
+      <version>0.1.5-SNAPSHOT</version>
+      <exclusions>
+        <exclusion>
+            <artifactId>servlet-api</artifactId>
+            <groupId>javax.servlet</groupId>
+        </exclusion>
+      </exclusions>
+    </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-core_${scala.binary.version}</artifactId>
