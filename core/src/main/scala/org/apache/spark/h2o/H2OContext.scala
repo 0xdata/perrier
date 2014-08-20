@@ -30,10 +30,12 @@ class H2OContext(@transient val sparkContext: SparkContext)
         nchks(i).addNum(                // Copy numeric data from fields to NewChunks
           if( prims(i) ) flds(i).getDouble(row)
           else {
-            var x = flds(i).get(row)
-            var y = if( opts(i) ) x.asInstanceOf[Option[_]].getOrElse(Double.NaN) else x
-            if( y.isInstanceOf[Number] ) y.asInstanceOf[Number].doubleValue
-            else Double.NaN
+            val x = flds(i).get(row)
+            val y = if( opts(i) ) x.asInstanceOf[Option[_]].getOrElse(Double.NaN) else x
+            y match {
+              case n : Number => n.doubleValue
+              case _ => Double.NaN
+            }
           }
         )
       }
