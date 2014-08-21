@@ -5,7 +5,7 @@ import hex.schemas.KMeansV2
 import org.apache.spark.h2o.H2OContext
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.{SparkContext, SparkConf}
-import water.{Model, AutoBuffer}
+import water.AutoBuffer
 
 object ProstateDemo {
 
@@ -88,6 +88,4 @@ object ProstateParse extends Serializable {
     Prostate(int(row(0)), int(row(1)), int(row(2)), int(row(3)), int(row(4)), int(row(5)), float(row(6)), float(row(7)), int(row(8)) )
   }
 }
-
-
 
