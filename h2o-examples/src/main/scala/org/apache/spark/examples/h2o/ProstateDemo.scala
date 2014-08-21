@@ -5,7 +5,7 @@ import hex.schemas.KMeansV2
 import org.apache.spark.h2o.H2OContext
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.{SparkContext, SparkConf}
-import water.{Model, AutoBuffer}
+import water.AutoBuffer
 
 object ProstateDemo {
 
@@ -108,8 +108,8 @@ object SchemaUtils {
     }
 
   def parseBool(s:String):Option[Boolean] = s.trim().toLowerCase match {
-    case "true"|"yes" => Option(true)
-    case "false"|"no" => Option(false)
+    case "true" |"yes" => Option(true )
+    case "false"|"no"  => Option(false)
     case _ => None
   }
 

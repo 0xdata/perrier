@@ -37,6 +37,7 @@ class H2OContext(@transient val sparkContext: SparkContext)
             val y = if( opts(i) ) x.asInstanceOf[Option[_]].getOrElse(Double.NaN) else x
             y match {
               case n : Number => n.doubleValue
+              case n : Boolean => if( n ) 1 else 0
               case _ => Double.NaN
             }
           }
@@ -59,6 +60,7 @@ class H2OContext(@transient val sparkContext: SparkContext)
             case q if q == classOf[Integer] => row.getInt(i)
             case q if q == classOf[java.lang.Float] => row.getFloat(i)
             case q if q == classOf[java.lang.Double] => row.getDouble(i)
+            case q if q == classOf[Boolean] => if( row.getBoolean(i)) 1 else 0
             case uet => throw new IllegalArgumentException(s"Unexpected type $uet")
           }
         )
