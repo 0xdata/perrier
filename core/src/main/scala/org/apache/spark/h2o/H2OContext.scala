@@ -1,5 +1,8 @@
 package org.apache.spark.h2o
 
+import org.apache.spark.sql.catalyst.types.{BinaryType, DoubleType, IntegerType, DataType, FloatType}
+import org.apache.spark.sql.{Row, SchemaRDD}
+
 import scala.language.implicitConversions
 import org.apache.spark.{TaskContext, SparkContext}
 import org.apache.spark.annotation.AlphaComponent
@@ -44,6 +47,53 @@ class H2OContext(@transient val sparkContext: SparkContext)
     water.fvec.Frame.closeNewChunks(nchks)
     // Return Partition# and rows in this Partition
     (context.partitionId,nchks(0).len)
+  }
+
+  private def perSQLPartition( h2ordd: H2ORDD[_], types: Array[Class[_]] ) ( context: TaskContext, it: Iterator[Row] ): (Int,Long) = {
+    val nchks = water.fvec.Frame.createNewChunks(h2ordd.h2oName,context.partitionId)
+    it.foreach(row => {
+      for( i <- 0 until h2ordd.colNames.length) {
+        nchks(i).addNum(
+          if (row.isNullAt(i)) Double.NaN
+          else types(i) match {
+            case q if q == classOf[Integer] => row.getInt(i)
+            case q if q == classOf[java.lang.Float] => row.getFloat(i)
+            case q if q == classOf[java.lang.Double] => row.getDouble(i)
+            case uet => throw new IllegalArgumentException(s"Unexpected type $uet")
+          }
+        )
+      }
+    })
+    // Compress & write out the Partition/Chunks
+    water.fvec.Frame.closeNewChunks(nchks)
+    // Return Partition# and rows in this Partition
+    (context.partitionId,nchks(0).len)
+  }
+
+  // Dedicated path for SchemaRDD which are not generic and represent RDD[Row] (it is kind of C++ template specialization ;-)
+  def createH2ORDD(rdd: SchemaRDD, name: String): H2ORDD[_] = {
+    val names = rdd.schema.fieldNames.toArray
+    val types = rdd.schema.fields.map( field => dataTypeToClass(field.dataType) ).toArray
+    println (types.mkString(", "))
+
+    val h2ordd = new H2ORDD(name, names, this, this.sparkContext, rdd)
+    h2ordd.fr.preparePartialFrame(names)
+
+    val rows = sparkContext.runJob(h2ordd, perSQLPartition(h2ordd, types) _) // eager, not lazy, evaluation
+    val res = new Array[Long](rdd.partitions.size)
+    rows.foreach{ case(cidx,nrows) => res(cidx) = nrows }
+
+    // Add Vec headers per-Chunk, and finalize the H2O Frame
+    h2ordd.fr.finalizePartialFrame(res)
+    h2ordd
+  }
+
+  private def dataTypeToClass(dt : DataType):Class[_] = dt match {
+    case BinaryType  => classOf[Integer]
+    case IntegerType => classOf[Integer]
+    case FloatType   => classOf[java.lang.Float]
+    case DoubleType  => classOf[java.lang.Double]
+    case _ => throw new IllegalArgumentException(s"Unsupported type $dt")
   }
 
   // Returns the original RDD (evaluated), and as a side-effect makes an H2O Frame with the RDD data

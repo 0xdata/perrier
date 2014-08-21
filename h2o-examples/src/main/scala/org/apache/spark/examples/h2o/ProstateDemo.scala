@@ -5,9 +5,9 @@ import hex.schemas.KMeansV2
 import org.apache.spark.h2o.H2OContext
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.{SparkContext, SparkConf}
-import water.AutoBuffer
+import water.{Model, AutoBuffer}
 
-object H2OTest {
+object ProstateDemo {
 
   def main(args: Array[String]) {
 
@@ -17,8 +17,10 @@ object H2OTest {
     val sc = createSparkContext()
 
     // Start H2O-in-Spark
-    water.H2OApp.main2("../h2o-dev")
-    water.H2O.waitForCloudSize(1/*One H2ONode to match the one Spark local-mode worker*/,1000)
+    if (sc.conf.get("spark.master").startsWith("local")) {
+      water.H2OApp.main2("../h2o-dev")
+      water.H2O.waitForCloudSize(1 /*One H2ONode to match the one Spark local-mode worker*/ , 1000)
+    }
 
     // Load raw data
     val parse = ProstateParse
@@ -27,18 +29,24 @@ object H2OTest {
     val sqlContext = new SQLContext(sc)
     import sqlContext._ // import implicit conversions
     val table = rawdata.map(_.split(",")).map(line => parse(line))
-    table.registerTempTable("prostate")
+    table.registerTempTable("prostate_table")
+
+    // Invoke query on a sample of data
+    val query = "SELECT * FROM prostate_table WHERE capsule=1"
+    val result = sql(query) // Using a registered context and tables
 
     // Map data into H2O frame and run an algorithm
     val hc = new H2OContext(sc)
 
     // Register RDD as a frame which will cause data transfer
+    //  - Invoked on result of SQL query, hence SQLSchema is used
     //  - This needs RDD -> H2ORDD implicit conversion, H2ORDDLike contains registerFrame
-    val h2oFrame = hc.createH2ORDD(table, "prostate.hex")
+    // This will not work so far:
+    val h2oFrame = hc.createH2ORDD(result, "prostate.hex")
 
     // Build a KMeansV2 model, setting model parameters via a Properties
     val props = new Properties
-    for ((k,v) <- Map("K"->"3")) props.setProperty(k,v)
+    for ((k,v) <- Seq("K"->"3")) props.setProperty(k,v)
     val job = new KMeansV2().fillFromParms(props).createImpl(h2oFrame.fr)
     val kmm = job.train().get()
     job.remove()
