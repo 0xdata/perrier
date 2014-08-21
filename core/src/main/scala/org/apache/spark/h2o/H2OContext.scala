@@ -74,7 +74,6 @@ class H2OContext(@transient val sparkContext: SparkContext)
   def createH2ORDD(rdd: SchemaRDD, name: String): H2ORDD[_] = {
     val names = rdd.schema.fieldNames.toArray
     val types = rdd.schema.fields.map( field => dataTypeToClass(field.dataType) ).toArray
-    println (types.mkString(", "))
 
     val h2ordd = new H2ORDD(name, names, this, this.sparkContext, rdd)
     h2ordd.fr.preparePartialFrame(names)
