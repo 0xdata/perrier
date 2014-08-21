@@ -3,6 +3,7 @@ package org.apache.spark.examples.h2o
 import java.util.Properties
 import hex.schemas.KMeansV2
 import org.apache.spark.h2o.H2OContext
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.{SparkContext, SparkConf}
 import water.AutoBuffer
@@ -34,7 +35,7 @@ object AirlinesDemo {
     })
 
     // Parse raw data per line and produce RDD of Airlines objects
-    val table = noheaderdata.map(_.split(",")).map(line => parse(line))
+    val table : RDD[Airlines] = noheaderdata.map(_.split(",")).map(line => parse(line))
     table.registerTempTable("airlines_table")
     println(table.take(2).map(_.toString).mkString("\n"))
 

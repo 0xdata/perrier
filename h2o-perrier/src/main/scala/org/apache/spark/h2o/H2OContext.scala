@@ -22,26 +22,20 @@ class H2OContext(@transient val sparkContext: SparkContext)
   with Serializable {
 
   private def perPartition[A: ClassTag]( h2ordd: H2ORDD[A] ) ( context: TaskContext, it: Iterator[A] ): (Int,Long) = {
-    val jc = implicitly[ClassTag[A]].runtimeClass
-    val flds = h2ordd.colNames.map(name => { val fld = jc.getDeclaredField(name); fld.setAccessible(true); fld }).toArray
-    val prims= flds.map(_.getType.isPrimitive)
-    val opts = flds.map(_.getType.isAssignableFrom(classOf[Option[_]]))
-    // A place to record all the data in this partition
-    val nchks= water.fvec.Frame.createNewChunks(h2ordd.h2oName,context.partitionId)
-    it.foreach(row => {                 // For all rows...
-      for( i <- 0 until flds.length ) { // For all fields...
-        nchks(i).addNum(                // Copy numeric data from fields to NewChunks
-          if( prims(i) ) flds(i).getDouble(row)
-          else {
-            val x = flds(i).get(row)
-            val y = if( opts(i) ) x.asInstanceOf[Option[_]].getOrElse(Double.NaN) else x
-            y match {
-              case n : Number => n.doubleValue
-              case n : Boolean => if( n ) 1 else 0
-              case _ => Double.NaN
-            }
+    // An array of H2O NewChunks; A place to record all the data in this partition
+    val nchks = water.fvec.Frame.createNewChunks(h2ordd.h2oName,context.partitionId)
+    it.foreach(row => {                    // For all rows...
+      val prod = row.asInstanceOf[Product] // Easy access to all fields
+      for( i <- 0 until prod.productArity ) { // For all fields...
+        val fld = prod.productElement(i)
+        nchks(i).addNum({                  // Copy numeric data from fields to NewChunks
+          val x = fld match { case Some(n) => n; case _ => fld }
+          x match {
+            case n: Number => n.doubleValue
+            case n: Boolean => if (n) 1 else 0
+            case _ => Double.NaN
           }
-        )
+        })
       }
     })
     // Compress & write out the Partition/Chunks
