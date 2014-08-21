@@ -7,7 +7,7 @@ import org.apache.spark.sql.SQLContext
 import org.apache.spark.{SparkContext, SparkConf}
 import water.{Model, AutoBuffer}
 
-object H2OTest {
+object ProstateDemo {
 
   def main(args: Array[String]) {
 
