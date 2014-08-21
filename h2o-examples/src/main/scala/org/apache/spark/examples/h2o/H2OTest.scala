@@ -42,8 +42,7 @@ object H2OTest {
     //  - Invoked on result of SQL query, hence SQLSchema is used
     //  - This needs RDD -> H2ORDD implicit conversion, H2ORDDLike contains registerFrame
     // This will not work so far:
-    // val h2oFrame = hc.createH2ORDD(result, "prostate.hex")
-    val h2oFrame = hc.createH2ORDD(table, "prostate.hex")
+    val h2oFrame = hc.createH2ORDD(result, "prostate.hex")
 
     // Build a KMeansV2 model, setting model parameters via a Properties
     val props = new Properties
