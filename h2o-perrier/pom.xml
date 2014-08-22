@@ -70,6 +70,12 @@
         </exclusion>
       </exclusions>
     </dependency>
+    <!-- FIXME: this reference is not necessary but we want to be sure that h2o-algos are part of runtime -->
+    <dependency>
+      <groupId>ai.h2o</groupId>
+      <artifactId>h2o-algos</artifactId>
+      <version>0.1.5-SNAPSHOT</version>
+    </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-core_${scala.binary.version}</artifactId>
@@ -99,3 +105,4 @@
     <testOutputDirectory>target/scala-${scala.binary.version}/test-classes</testOutputDirectory>
   </build>
 </project>
+
