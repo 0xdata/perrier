@@ -3,7 +3,7 @@ package org.apache.spark.examples.h2o
 import java.util.Properties
 import hex.schemas.KMeansV2
 import org.apache.spark.h2o.H2OContext
-import org.apache.spark.rdd.RDD
+import org.apache.spark.rdd.{H2ORDD, RDD}
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.{SparkContext, SparkConf}
 import water.AutoBuffer
@@ -25,45 +25,49 @@ object AirlinesDemo {
       water.H2O.waitForCloudSize(1 /*One H2ONode to match the one Spark local-mode worker*/ , 1000)
     }
 
-    // Load raw data
-    val parse = AirlinesParse
-    val rawdata = sc.textFile("h2o-examples/smalldata/allyears2k_headers.csv.gz",2)
-    // Drop the header line
-    val noheaderdata = rawdata.mapPartitionsWithIndex((partitionIdx: Int, lines: Iterator[String]) => {
-      if (partitionIdx == 0) lines.drop(1)
-      lines
-    })
-
-    // Parse raw data per line and produce RDD of Airlines objects
-    val table : RDD[Airlines] = noheaderdata.map(_.split(",")).map(line => parse(line))
-    table.registerTempTable("airlines_table")
-    println(table.take(2).map(_.toString).mkString("\n"))
-
-    // Invoke query on a sample of data
-    //val query = "SELECT * FROM airlines_table WHERE capsule=1"
-    //val result = sql(query) // Using a registered context and tables
-
-    // Map data into H2O frame and run an algorithm
+    // Load data into H2O
     val hc = new H2OContext(sc)
+    val h2ordd = hc.parse[Airlines]("airlines.hex","h2o-examples/smalldata/allyears2k_headers.csv.gz")
+    println(h2ordd.take(1)(0))
 
-    // Register RDD as a frame which will cause data transfer
-    //  - Invoked on result of SQL query, hence SQLSchema is used
-    //  - This needs RDD -> H2ORDD implicit conversion, H2ORDDLike contains registerFrame
-    // This will not work so far:
-    val h2oFrame = hc.createH2ORDD(table, "airlines.hex")
+    //// Load raw data
+    //val parse = AirlinesParse
+    //val rawdata = sc.textFile("h2o-examples/smalldata/allyears2k_headers.csv.gz",2)
+    //// Drop the header line
+    //val noheaderdata = rawdata.mapPartitionsWithIndex((partitionIdx: Int, lines: Iterator[String]) => {
+    //  if (partitionIdx == 0) lines.drop(1)
+    //  lines
+    //})
+    //
+    //// Parse raw data per line and produce RDD of Airlines objects
+    //val table : RDD[Airlines] = noheaderdata.map(_.split(",")).map(line => parse(line))
+    //table.registerTempTable("airlines_table")
+    //println(table.take(2).map(_.toString).mkString("\n"))
+    //
+    //// Invoke query on a sample of data
+    ////val query = "SELECT * FROM airlines_table WHERE capsule=1"
+    ////val result = sql(query) // Using a registered context and tables
+    //
+    //// Map data into H2O frame and run an algorithm
+    //
+    //// Register RDD as a frame which will cause data transfer
+    ////  - Invoked on result of SQL query, hence SQLSchema is used
+    ////  - This needs RDD -> H2ORDD implicit conversion, H2ORDDLike contains registerFrame
+    //// This will not work so far:
+    //val h2oFrame = hc.createH2ORDD(table, "airlines.hex")
 
     // Build a KMeansV2 model, setting model parameters via a Properties
     val props = new Properties
     for ((k,v) <- Seq("K"->"3")) props.setProperty(k,v)
-    val job = new KMeansV2().fillFromParms(props).createImpl(h2oFrame.fr)
+    val job = new KMeansV2().fillFromParms(props).createImpl(h2ordd.fr)
     val kmm = job.train().get()
     job.remove()
     // Print the JSON model
     println(new String(kmm._output.writeJSON(new AutoBuffer()).buf()))
 
     // Stop Spark local worker; stop H2O worker
-    //sc.stop()
-    //water.H2O.exit(0)
+    sc.stop()
+    water.H2O.exit(0)
   }
 
   private def createSparkContext(sparkMaster:String = null): SparkContext = {
@@ -111,6 +115,7 @@ class Airlines (Year              :Option[Int],
                 IsArrDelayed      :Option[Boolean],
                 IsDepDelayed      :Option[Boolean]) extends Product {
 
+  def this() = this(None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None)
   override def canEqual(that: Any):Boolean = that.isInstanceOf[Airlines]
   override def productArity: Int = 31
   override def productElement(n: Int) = n match {

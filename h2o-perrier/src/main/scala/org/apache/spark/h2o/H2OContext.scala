@@ -1,5 +1,7 @@
 package org.apache.spark.h2o
 
+import java.io.File
+
 import org.apache.spark.sql.catalyst.types.{BinaryType, DoubleType, IntegerType, DataType, FloatType}
 import org.apache.spark.sql.{Row, SchemaRDD}
 
@@ -91,8 +93,8 @@ class H2OContext(@transient val sparkContext: SparkContext)
     case _ => throw new IllegalArgumentException(s"Unsupported type $dt")
   }
 
-  // Returns the original RDD (evaluated), and as a side-effect makes an H2O Frame with the RDD data
-  // Eager, not lazy, evaluation
+  // Returns an H2ORDD as a side-effect makes an H2O Frame with the RDD data.
+  // The input RDD is eagerly evaluated
   def createH2ORDD[A: TypeTag: ClassTag](rdd: RDD[A], name: String): H2ORDD[A] = {
     // Pull out the RDD members; the names become H2O column names; the type guide conversion
     val tt = typeOf[A].members.sorted.filter(!_.isMethod).toArray
@@ -109,6 +111,14 @@ class H2OContext(@transient val sparkContext: SparkContext)
 
     // Add Vec headers per-Chunk, and finalize the H2O Frame
     h2ordd.fr.finalizePartialFrame(res)
+    h2ordd
+  }
+
+  // Returns an H2ORDD referring to an H2O Frame built from the given filename
+  def parse[A: ClassTag]( name : String, fileName : String ) = {
+    val fr : water.fvec.Frame = water.util.FrameUtils.parseFrame(water.Key.make(name), new File(fileName))
+    val h2ordd = new H2ORDD[A](name, fr.names(), this, this.sparkContext, null)
+    h2ordd.fr.add(fr)           // Jam all the names & cols in
     h2ordd
   }
 }
