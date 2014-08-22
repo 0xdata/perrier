@@ -151,10 +151,12 @@
               </transformers>
               <artifactSet>
                 <includes>
-                  <include>org.apache.spark:spark-h2o-perrier_${scala.binary.version}</include>
                   <include>*:spark-h2o-examples*</include>
                   <include>ai.h2o:h2o-app</include>
+                  <!--
+                  <include>org.apache.spark:spark-h2o-perrier_${scala.binary.version}</include>
                   <include>ai.h2o:h2o-algos</include>
+                  -->
                 </includes>
                 <!--<excludes>
                   <exclude>*:*</exclude>
