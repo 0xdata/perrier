@@ -73,7 +73,7 @@ class H2OContext(@transient val sparkContext: SparkContext)
     val names = rdd.schema.fieldNames.toArray
     val types = rdd.schema.fields.map( field => dataTypeToClass(field.dataType) ).toArray
 
-    val h2ordd = new H2ORDD(name, names, this, this.sparkContext, rdd)
+    val h2ordd = new H2ORDD(name, names, this, this.sparkContext, rdd, null)
     h2ordd.fr.preparePartialFrame(names)
 
     val rows = sparkContext.runJob(h2ordd, perSQLPartition(h2ordd, types) _) // eager, not lazy, evaluation
@@ -101,7 +101,7 @@ class H2OContext(@transient val sparkContext: SparkContext)
     val names = tt.map(_.name.toString.trim)
 
     // Make an H2ORDD, and within it an H2O data Frame - but with no backing data (yet)
-    val h2ordd = new H2ORDD(name, names, this, this.sparkContext, rdd)
+    val h2ordd = new H2ORDD(name, names, this, this.sparkContext, rdd, null)
     h2ordd.fr.preparePartialFrame(names)
 
     // Parallel-fill the H2O data Chunks
@@ -115,10 +115,8 @@ class H2OContext(@transient val sparkContext: SparkContext)
   }
 
   // Returns an H2ORDD referring to an H2O Frame built from the given filename
-  def parse[A: ClassTag]( name : String, fileName : String ) = {
-    val fr : water.fvec.Frame = water.util.FrameUtils.parseFrame(water.Key.make(name), new File(fileName))
-    val h2ordd = new H2ORDD[A](name, fr.names(), this, this.sparkContext, null)
-    h2ordd.fr.add(fr)           // Jam all the names & cols in
-    h2ordd
+  def parse[A: ClassTag]( name : String, f : File ) = {
+    val fr : water.fvec.Frame = water.util.FrameUtils.parseFrame(water.Key.make(name), f)
+    new H2ORDD[A](name, fr.names(), this, this.sparkContext, null, fr)
   }
 }

@@ -1,5 +1,6 @@
 package org.apache.spark.examples.h2o
 
+import java.io.File
 import java.util.Properties
 import hex.schemas.KMeansV2
 import org.apache.spark.h2o.H2OContext
@@ -27,7 +28,7 @@ object AirlinesDemo {
 
     // Load data into H2O
     val hc = new H2OContext(sc)
-    val h2ordd = hc.parse[Airlines]("airlines.hex","h2o-examples/smalldata/allyears2k_headers.csv.gz")
+    val h2ordd = hc.parse[Airlines]("airlines.hex",new File("h2o-examples/smalldata/allyears2k_headers.csv.gz"))
     println(h2ordd.take(1)(0))
 
     //// Load raw data
