@@ -7,7 +7,7 @@ import org.apache.spark.h2o.H2OContext
 import org.apache.spark.rdd.{H2ORDD, RDD}
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.{SparkContext, SparkConf}
-import water.AutoBuffer
+import water.fvec.DataFrame
 
 object AirlinesDemo {
 
@@ -28,8 +28,9 @@ object AirlinesDemo {
 
     // Load data into H2O
     val hc = new H2OContext(sc)
-    val h2ordd = hc.parse[Airlines]("airlines.hex",new File("h2o-examples/smalldata/allyears2k_headers.csv.gz"))
-    println(h2ordd.take(1)(0))
+    val airlines = new DataFrame(new File("h2o-examples/smalldata/allyears2k_headers.csv.gz"))
+    //val h2ordd = hc.parse[Airlines]("airlines.hex",
+    //println(h2ordd.take(1)(0))
 
     //// Load raw data
     //val parse = AirlinesParse
@@ -58,13 +59,13 @@ object AirlinesDemo {
     //val h2oFrame = hc.createH2ORDD(table, "airlines.hex")
 
     // Build a KMeansV2 model, setting model parameters via a Properties
-    val props = new Properties
-    for ((k,v) <- Seq("K"->"3")) props.setProperty(k,v)
-    val job = new KMeansV2().fillFromParms(props).createImpl(h2ordd.fr)
-    val kmm = job.train().get()
-    job.remove()
-    // Print the JSON model
-    println(new String(kmm._output.writeJSON(new AutoBuffer()).buf()))
+    //val props = new Properties
+    //for ((k,v) <- Seq("K"->"3")) props.setProperty(k,v)
+    //val job = new KMeansV2().fillFromParms(props).createImpl(h2ordd.fr)
+    //val kmm = job.train().get()
+    //job.remove()
+    //// Print the JSON model
+    //println(new String(kmm._output.writeJSON(new AutoBuffer()).buf()))
 
     // Stop Spark local worker; stop H2O worker
     sc.stop()
