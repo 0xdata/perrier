@@ -285,7 +285,7 @@
     <dependency>
       <groupId>ai.h2o</groupId>
       <artifactId>h2o-core</artifactId>
-      <version>0.1.5-SNAPSHOT</version>
+      <version>${h2o.version}</version>
     </dependency>
   </dependencies>
   <build>

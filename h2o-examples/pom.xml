@@ -62,13 +62,19 @@
     <dependency>
       <groupId>ai.h2o</groupId>
       <artifactId>h2o-app</artifactId>
-      <version>0.1.5-SNAPSHOT</version>
+      <version>${h2o.version}</version>
       <exclusions>
         <exclusion>
             <artifactId>servlet-api</artifactId>
             <groupId>javax.servlet</groupId>
         </exclusion>
       </exclusions>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>ai.h2o</groupId>
+      <artifactId>h2o-scala_${scala.binary.version}</artifactId>
+      <version>${h2o.version}</version>
       <scope>compile</scope>
     </dependency>
     <dependency>

@@ -17,5 +17,5 @@ echo "---------"
 echo "  Using master : $EXAMPLE_MASTER"
 echo "  Using example: $EXAMPLE"
 echo "---------"
-
+export SPARK_PRINT_LAUNCH_COMMAND=1
 ( cd ../; bin/spark-submit --verbose --master $EXAMPLE_MASTER --class $EXAMPLE h2o-examples/target/shaded.jar )
