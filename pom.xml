@@ -138,7 +138,7 @@
     <jets3t.version>0.7.1</jets3t.version>
     <aws.java.sdk.version>1.8.3</aws.java.sdk.version>
     <aws.kinesis.client.version>1.1.0</aws.kinesis.client.version>
-    <h2o.version>0.1.5-SNAPSHOT</h2o.version>
+    <h2o.version>0.1.6-SNAPSHOT</h2o.version>
 
     <PermGen>64m</PermGen>
     <MaxPermGen>512m</MaxPermGen>
