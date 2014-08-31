@@ -105,6 +105,7 @@
     <module>external/mqtt</module>
     <module>examples</module>
     <module>h2o-perrier</module>
+    <module>h2o-mllib-ext</module>
     <module>h2o-examples</module>
   </modules>
 
