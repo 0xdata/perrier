@@ -1,8 +1,6 @@
 package org.apache.spark.examples.h2o
 
 import java.io.File
-import java.util.Properties
-import hex.schemas.KMeansV2
 import org.apache.spark.h2o.H2OContext
 import org.apache.spark.rdd.{H2ORDD, RDD}
 import org.apache.spark.sql.SQLContext

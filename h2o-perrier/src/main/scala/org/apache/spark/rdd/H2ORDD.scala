@@ -2,7 +2,7 @@ package org.apache.spark.rdd
 
 import org.apache.spark.h2o.H2OContext
 import org.apache.spark.{TaskContext, Partition, SparkContext}
-import water.fvec.Frame
+import water.fvec.DataFrame
 import water.{DKV, Key}
 import scala.reflect.ClassTag
 
@@ -21,35 +21,37 @@ import scala.reflect.ClassTag
  *  TODO: create JIRA support arbitrary spark runtime extension, arbitrary extension data
  *
  */
+
+...
 private[spark]
 class H2ORDD[A: ClassTag](val h2oName: String,
              val colNames: Array[String],
              @transient val hc: H2OContext,
-             @transient sc: SparkContext, rdd: RDD[A],
-             @transient fr2: water.fvec.Frame)
+             @transient sc: SparkContext,
+             @transient rdd: Option[RDD[A]],
+             @transient fr:  Option[water.fvec.DataFrame])
   extends RDD[A](sc, Nil) {
-
-  /** H2O data Frame.  Either passed in, or built lazily from a Sparc RDD */
-  @transient val fr: water.fvec.Frame = if( fr2==null ) new water.fvec.Frame(h2oName) else fr2
+    if( rdd.isEmpty && fr.isEmpty ) throw new IllegalArgumentException("Must pass in either an RDD or a DataFrame")
 
   /**
    * :: DeveloperApi ::
    * Implemented by subclasses to compute a given partition.
    */
   override def compute(split: Partition, context: TaskContext): Iterator[A] = {
-    if( rdd != null ) rdd.compute(split,context)
+    if( rdd != null ) rdd.get.compute(split,context)
     else {
       new Iterator[A] {
-        val fr : Frame = DKV.get(Key.make(h2oName)).get.asInstanceOf[Frame]
+        val fr : DataFrame = DKV.get(Key.make(h2oName)).get.asInstanceOf[DataFrame]
         val a : A = implicitly[ClassTag[A]].runtimeClass.newInstance.asInstanceOf[A]
         val chks = fr.getChunks(split.index)
         val nrows = chks(0).len
         var row : Int = 0
         def hasNext: Boolean = row < nrows
         def next(): A = {
+          ???
           //for( i <- 0 until chks.length )
           //  a.
-          a
+          //a
         }
       }
     }
@@ -57,9 +59,9 @@ class H2ORDD[A: ClassTag](val h2oName: String,
 
   /** Pass thru an RDD if given one, else pull from the H2O Frame */
   override protected def getPartitions: Array[Partition] = {
-    if( rdd != null ) rdd.partitions
+    if( rdd != null ) rdd.get.partitions
     else { // Make partitions to draw from H2O Frame
-      val num = fr.anyVec().nChunks()
+      val num = fr.get.anyVec().nChunks()
       val res = new Array[Partition](num)
       for( i <- 0 until num ) res(i) = new Partition { val index = i }
       res

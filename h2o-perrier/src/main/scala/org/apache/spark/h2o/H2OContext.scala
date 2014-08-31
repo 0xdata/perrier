@@ -73,15 +73,15 @@ class H2OContext(@transient val sparkContext: SparkContext)
     val names = rdd.schema.fieldNames.toArray
     val types = rdd.schema.fields.map( field => dataTypeToClass(field.dataType) ).toArray
 
-    val h2ordd = new H2ORDD(name, names, this, this.sparkContext, rdd, null)
-    h2ordd.fr.preparePartialFrame(names)
+    val h2ordd = new H2ORDD(name, names, this, this.sparkContext, Some(rdd), None)
+    h2ordd.fr.get.preparePartialFrame(names)
 
     val rows = sparkContext.runJob(h2ordd, perSQLPartition(h2ordd, types) _) // eager, not lazy, evaluation
     val res = new Array[Long](rdd.partitions.size)
     rows.foreach{ case(cidx,nrows) => res(cidx) = nrows }
 
     // Add Vec headers per-Chunk, and finalize the H2O Frame
-    h2ordd.fr.finalizePartialFrame(res)
+    h2ordd.fr.get.finalizePartialFrame(res)
     h2ordd
   }
 
