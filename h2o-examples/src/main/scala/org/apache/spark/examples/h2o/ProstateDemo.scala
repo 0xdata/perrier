@@ -2,11 +2,12 @@ package org.apache.spark.examples.h2o
 
 import java.io.File
 import java.util.Properties
+
 import hex.schemas.KMeansV2
 import org.apache.spark.h2o.H2OContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SQLContext
-import org.apache.spark.{SparkContext, SparkConf}
+import org.apache.spark.{SparkConf, SparkContext}
 import water.AutoBuffer
 import water.fvec.DataFrame
 
@@ -36,11 +37,11 @@ object ProstateDemo {
     table.registerTempTable("prostate_table")
 
     // Invoke query on data; select a subsample
-    val query = "SELECT * FROM prostate_table WHERE capsule=1"
+    val query = "SELECT * FROM prostate_table WHERE CAPSULE=1"
     val result = sql(query) // Using a registered context and tables
 
     // Convert back to H2O
-    val frameFromQuery = H2OContext.toDataFrame(result)
+    val frameFromQuery = H2OContext.toDataFrame(sc,result)
 
     // Build a KMeansV2 model, setting model parameters via a Properties
     val props = new Properties
@@ -69,13 +70,14 @@ object ProstateDemo {
 }
 
 /** Prostate schema definition. */
-case class Prostate(id      :Option[Int],
-                    capsule :Option[Int],
-                    age     :Option[Int],
-                    race    :Option[Int],
-                    dpros   :Option[Int],
-                    dcaps   :Option[Int],
-                    psa     :Option[Float],
-                    vol     :Option[Float],
-                    gleason :Option[Int])
+case class Prostate(ID      :Option[Int]  ,
+                    CAPSULE :Option[Int]  ,
+                    AGE     :Option[Int]  ,
+                    RACE    :Option[Int]  ,
+                    DPROS   :Option[Int]  ,
+                    DCAPS   :Option[Int]  ,
+                    PSA     :Option[Float],
+                    VOL     :Option[Float],
+                    GLEASON :Option[Int]  ) {
+}
 
