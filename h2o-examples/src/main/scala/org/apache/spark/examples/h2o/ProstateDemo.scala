@@ -26,9 +26,9 @@ object ProstateDemo {
     }
 
     // Load H2O from CSV file
-    val h2oFromCSV = new DataFrame(new File("h2o-examples/smalldata/prostate.csv"))
+    val frameFromCSV = new DataFrame(new File("h2o-examples/smalldata/prostate.csv"))
 
-    val table : RDD[Prostate] = H2OContext.toRDD[Prostate](sc,h2oFromCSV)
+    val table : RDD[Prostate] = H2OContext.toRDD[Prostate](sc,frameFromCSV)
 
     // Convert to SQL type RDD
     val sqlContext = new SQLContext(sc)
@@ -40,12 +40,12 @@ object ProstateDemo {
     val result = sql(query) // Using a registered context and tables
 
     // Convert back to H2O
-    val h2oFromRDD = H2OContext.toDataFrame(result)
+    val frameFromQuery = H2OContext.toDataFrame(result)
 
     // Build a KMeansV2 model, setting model parameters via a Properties
     val props = new Properties
     for ((k,v) <- Seq("K"->"3")) props.setProperty(k,v)
-    val job = new KMeansV2().fillFromParms(props).createImpl(h2oFromRDD)
+    val job = new KMeansV2().fillFromParms(props).createImpl(frameFromQuery)
     val kmm = job.train().get()
     job.remove()
     // Print the JSON model
