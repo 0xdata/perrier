@@ -1,11 +1,14 @@
 package org.apache.spark.examples.h2o
 
+import java.io.File
 import java.util.Properties
 import hex.schemas.KMeansV2
 import org.apache.spark.h2o.H2OContext
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.{SparkContext, SparkConf}
 import water.AutoBuffer
+import water.fvec.DataFrame
 
 object ProstateDemo {
 
@@ -22,32 +25,27 @@ object ProstateDemo {
       water.H2O.waitForCloudSize(1 /*One H2ONode to match the one Spark local-mode worker*/ , 1000)
     }
 
-    // Load raw data
-    val parse = ProstateParse
-    val rawdata = sc.textFile("h2o-examples/smalldata/prostate.csv",2)
-    // Parse raw data per line and produce
+    // Load H2O from CSV file
+    val h2oFromCSV = new DataFrame(new File("h2o-examples/smalldata/prostate.csv"))
+
+    val table : RDD[Prostate] = H2OContext.toRDD[Prostate](sc,h2oFromCSV)
+
+    // Convert to SQL type RDD
     val sqlContext = new SQLContext(sc)
     import sqlContext._ // import implicit conversions
-    val table = rawdata.map(_.split(",")).map(line => parse(line))
     table.registerTempTable("prostate_table")
 
-    // Invoke query on a sample of data
+    // Invoke query on data; select a subsample
     val query = "SELECT * FROM prostate_table WHERE capsule=1"
     val result = sql(query) // Using a registered context and tables
 
-    // Map data into H2O frame and run an algorithm
-    val hc = new H2OContext(sc)
-
-    // Register RDD as a frame which will cause data transfer
-    //  - Invoked on result of SQL query, hence SQLSchema is used
-    //  - This needs RDD -> H2ORDD implicit conversion, H2ORDDLike contains registerFrame
-    // This will not work so far:
-    val h2oFrame = hc.createH2ORDD(result, "prostate.hex")
+    // Convert back to H2O
+    val h2oFromRDD = H2OContext.toDataFrame(result)
 
     // Build a KMeansV2 model, setting model parameters via a Properties
     val props = new Properties
     for ((k,v) <- Seq("K"->"3")) props.setProperty(k,v)
-    val job = new KMeansV2().fillFromParms(props).createImpl(h2oFrame.fr)
+    val job = new KMeansV2().fillFromParms(props).createImpl(h2oFromRDD)
     val kmm = job.train().get()
     job.remove()
     // Print the JSON model
@@ -80,12 +78,4 @@ case class Prostate(id      :Option[Int],
                     psa     :Option[Float],
                     vol     :Option[Float],
                     gleason :Option[Int])
-
-/** A dummy csv parser for prostate dataset. */
-object ProstateParse extends Serializable {
-  def apply(row: Array[String]): Prostate = {
-    import SchemaUtils._
-    Prostate(int(row(0)), int(row(1)), int(row(2)), int(row(3)), int(row(4)), int(row(5)), float(row(6)), float(row(7)), int(row(8)) )
-  }
-}
 
