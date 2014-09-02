@@ -18,6 +18,7 @@
 package org.apache.spark.mllib.classification
 
 import java.lang.Exception
+import java.util
 
 import hex.deeplearning.DeepLearning
 import hex.deeplearning.DeepLearningModel.DeepLearningParameters
@@ -28,6 +29,7 @@ import org.apache.spark.mllib.regression._
 import org.apache.spark.mllib.util.TestingUtils._
 import org.apache.spark.mllib.util.{LocalH2OContext, LocalClusterSparkContext, LocalSparkContext}
 import org.scalatest.{FunSuite, Matchers}
+import water.fvec.DataFrame
 
 import scala.collection.JavaConversions._
 import scala.util.Random
@@ -78,16 +80,15 @@ class DeepLearningSuite extends FunSuite with LocalSparkContext with LocalH2OCon
     val trainRDD = sc.parallelize(trainData, 2)
     trainRDD.cache()
 
-    val hc = new H2OContext(sc)
-    import hc._
-    val trainH2ORDD = createH2ORDD(trainRDD, "train_data_rdd.hex")
+    import H2OContext._
+    // Create H2O data frame
+    val trainH2ORDD = toDataFrame(sc, trainRDD)
     // Launch Deep Learning:
     // - configure parameters
     val dlParams = new DeepLearningParameters()
-    val testRawH2OFrame = trainH2ORDD.fr
 
-    dlParams.source = testRawH2OFrame
-    dlParams.response = testRawH2OFrame.lastVec()
+    dlParams.source = trainH2ORDD
+    dlParams.response = trainH2ORDD.lastVec()
     dlParams.classification = true
 
     // - create a model builder
@@ -98,36 +99,22 @@ class DeepLearningSuite extends FunSuite with LocalSparkContext with LocalH2OCon
 
     val validationData = DeepLearningSuite.generateLogisticInput(A, B, nPoints, 17)
     val validationRDD = sc.parallelize(validationData, 2)
-    val validationH2ORDD = createH2ORDD(validationRDD, "validation_data_rdd.hex")
-    val validationRawH2OFrame = validationH2ORDD.fr
+    val validationH2ORDD = toDataFrame(sc, validationRDD)
     // Score validation data
-    val predictionH2OFrame = dlModel.score(validationRawH2OFrame)
+    val predictionH2OFrame = new DataFrame(dlModel.score(validationH2ORDD))('predict) // Missing implicit conversion
+    val predictionRDD = toRDD[DoubleHolder](sc, predictionH2OFrame)
+    // Validate prediction
+    validatePrediction( predictionRDD.collect().map (_.predict.getOrElse(Double.NaN)), validationData)
 
-    //validationRDD.zip(prediction).map()
-
-//    val validationH2ORDD = createH2ORDD(validatePrediction())
-//    dlModel.score()
-    // This is way of MLLIB
-    /*val model = lr.run(testRDD)
-
-    // Test the weights
-    assert(model.weights(0) ~== -1.52 relTol 0.01)
-    assert(model.intercept ~== 2.00 relTol 0.01)
-
-    val validationData = DeepLearningSuite.generateLogisticInput(A, B, nPoints, 17)
-    val validationRDD = sc.parallelize(validationData, 2)
-    // Test prediction on RDD.
-    validatePrediction(model.predict(validationRDD.map(_.features)).collect(), validationData)
-
-    // Test prediction on Array.
-    validatePrediction(validationData.map(row => model.predict(row.features)), validationData) */
   }
 
-  def validatePrediction(predictions: Seq[Double], input: Seq[LabeledPoint]) {
+  def validatePrediction(predictions: Seq[Double], input: Seq[ThePoint]) {
     val numOffPredictions = predictions.zip(input).count { case (prediction, expected) =>
-      prediction != expected.label
+      prediction != expected.y
     }
     // At least 83% of the predictions should be on.
     ((input.length - numOffPredictions).toDouble / input.length) should be > 0.83
   }
 }
+
+case class DoubleHolder(predict: Option[Double])
