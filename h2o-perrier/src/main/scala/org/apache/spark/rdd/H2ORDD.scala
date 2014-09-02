@@ -1,6 +1,6 @@
 package org.apache.spark.rdd
 
-import org.apache.spark.h2o.H2OContext
+import org.apache.spark.h2o.{ReflectionUtils, H2OContext}
 import org.apache.spark.{Partition, SparkContext, TaskContext}
 import water.fvec.DataFrame
 import water.{DKV, Key}
@@ -16,7 +16,7 @@ private[spark]
 class H2ORDD[A <: Product: TypeTag: ClassTag] private (@transient sc: SparkContext, @transient fr: DataFrame, val colNames: Array[String]) extends RDD[A](sc, Nil) {
 
   // Get column names before building an RDD
-  def this(sc: SparkContext, fr : DataFrame ) = this(sc,fr,H2OContext.colsFromType[A]())
+  def this(sc: SparkContext, fr : DataFrame ) = this(sc,fr,ReflectionUtils.names[A])
   // Cache a way to get DataFrame from the K/V
   val keyName = fr._key.toString
   // Check that DataFrame & given Scala type are compatible
