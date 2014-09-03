@@ -26,12 +26,12 @@
   </parent>
 
   <groupId>org.apache.spark</groupId>
-  <artifactId>spark-h2o-perrier_2.10</artifactId>
+  <artifactId>spark-h2o-mllib-ext_2.10</artifactId>
   <properties>
-    <sbt.project.name>h2o-perrier</sbt.project.name>
+    <sbt.project.name>h2o-mllib-ext</sbt.project.name>
   </properties>
   <packaging>jar</packaging>
-  <name>Spark+H2O Project</name>
+  <name>H2O MLLib Extension Project</name>
   <url>http://spark.apache.org/</url>
 
   <profiles>
@@ -61,37 +61,27 @@
   <dependencies>
     <dependency>
       <groupId>ai.h2o</groupId>
-      <artifactId>h2o-core</artifactId>
-      <version>${h2o.version}</version>
-      <exclusions>
-        <exclusion>
-            <artifactId>servlet-api</artifactId>
-            <groupId>javax.servlet</groupId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <!-- FIXME: this reference is not necessary but we want to be sure that h2o-algos are part of runtime -->
-    <dependency>
-      <groupId>ai.h2o</groupId>
       <artifactId>h2o-algos</artifactId>
       <version>${h2o.version}</version>
     </dependency>
     <dependency>
-      <groupId>ai.h2o</groupId>
-      <artifactId>h2o-scala_${scala.binary.version}</artifactId>
-      <version>${h2o.version}</version>
-    </dependency>
-    <dependency>
       <groupId>org.apache.spark</groupId>
-      <artifactId>spark-core_${scala.binary.version}</artifactId>
+      <artifactId>spark-h2o-perrier_${scala.binary.version}</artifactId>
       <version>${project.version}</version>
       <scope>compile</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
-      <artifactId>spark-sql_${scala.binary.version}</artifactId>
+      <artifactId>spark-mllib_${scala.binary.version}</artifactId>
       <version>${project.version}</version>
       <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-mllib_${scala.binary.version}</artifactId>
+      <version>${project.version}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.scalatest</groupId>
