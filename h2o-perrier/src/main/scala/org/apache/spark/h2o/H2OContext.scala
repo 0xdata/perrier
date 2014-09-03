@@ -1,3 +1,20 @@
+/*
+* Licensed to the Apache Software Foundation (ASF) under one or more
+* contributor license agreements.  See the NOTICE file distributed with
+* this work for additional information regarding copyright ownership.
+* The ASF licenses this file to You under the Apache License, Version 2.0
+* (the "License"); you may not use this file except in compliance with
+* the License.  You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+
 package org.apache.spark.h2o
 
 import org.apache.spark.annotation.AlphaComponent
@@ -17,7 +34,6 @@ import scala.reflect.runtime.universe._
  *
  * Doing - implicit conversion from RDD -> H2OLikeRDD
  */
-@AlphaComponent
 class H2OContext(@transient val sparkContext: SparkContext)
   extends org.apache.spark.Logging
   with H2OConf
@@ -71,7 +87,9 @@ object H2OContext {
     case _ => throw new IllegalArgumentException(s"Unsupported type $dt")
   }
 
-  private def perSQLPartition(keystr: String, types: Array[Class[_]] ) ( context: TaskContext, it: Iterator[Row] ): (Int,Long) = {
+  private
+  def perSQLPartition ( keystr: String, types: Array[Class[_]] )
+                      ( context: TaskContext, it: Iterator[Row] ): (Int,Long) = {
     val nchks = water.fvec.Frame.createNewChunks(keystr,context.partitionId)
     it.foreach(row => {
       for( i <- 0 until types.length) {
@@ -87,7 +105,9 @@ object H2OContext {
     (context.partitionId,nchks(0).len)
   }
 
-  private def perRDDPartition[A<:Product]( keystr:String ) ( context: TaskContext, it: Iterator[A] ): (Int,Long) = {
+  private
+  def perRDDPartition[A<:Product]( keystr:String )
+                                         ( context: TaskContext, it: Iterator[A] ): (Int,Long) = {
     // An array of H2O NewChunks; A place to record all the data in this partition
     val nchks = water.fvec.Frame.createNewChunks(keystr,context.partitionId)
     it.foreach(prod => { // For all rows which are subtype of Product
@@ -109,5 +129,6 @@ object H2OContext {
     (context.partitionId,nchks(0).len)
   }
 
-  def toRDD[A <: Product: TypeTag: ClassTag]( sc : SparkContext, fr : DataFrame ) : RDD[A] = new H2ORDD[A](sc,fr)
+  def toRDD[A <: Product: TypeTag: ClassTag]
+           ( sc : SparkContext, fr : DataFrame ) : RDD[A] = new H2ORDD[A](sc,fr)
 }

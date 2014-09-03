@@ -1,3 +1,20 @@
+/*
+* Licensed to the Apache Software Foundation (ASF) under one or more
+* contributor license agreements.  See the NOTICE file distributed with
+* this work for additional information regarding copyright ownership.
+* The ASF licenses this file to You under the Apache License, Version 2.0
+* (the "License"); you may not use this file except in compliance with
+* the License.  You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+
 package org.apache.spark.examples.h2o
 
 import java.io.File
@@ -17,7 +34,8 @@ object ProstateDemo {
 
     // Create Spark context which will drive computation
     // By default we use local spark context (which is useful for development)
-    // but for cluster spark context, you should pass VM options -Dspark.master=spark://localhost:7077
+    // but for cluster spark context, you should pass
+    // VM option -Dspark.master=spark://localhost:7077
     val sc = createSparkContext()
 
     // Start H2O-in-Spark
@@ -62,7 +80,7 @@ object ProstateDemo {
     val conf = new SparkConf()
       .setAppName("H2O Integration Example")
       //.set("spark.executor.memory", "1g")
-    //if (!local) // Run 'sbt assembly to produce target/scala-2.10/h2o-sparkling-demo-assembly-1.0.jar
+    //if (!local)
     //  conf.setJars(Seq("h2o-examples/target/spark-h2o-examples_2.10-1.1.0-SNAPSHOT.jar"))
     if (System.getProperty("spark.master")==null) conf.setMaster("local")
     new SparkContext(conf)
