@@ -63,6 +63,12 @@
       <groupId>ai.h2o</groupId>
       <artifactId>h2o-algos</artifactId>
       <version>${h2o.version}</version>
+      <exclusions>
+        <exclusion>
+            <artifactId>servlet-api</artifactId>
+            <groupId>javax.servlet</groupId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
