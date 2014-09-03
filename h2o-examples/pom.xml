@@ -157,8 +157,13 @@
               </transformers>
               <artifactSet>
                 <includes>
-                  <include>*:spark-h2o-examples*</include>
+                  <include>*:spark-h2o-examples_${scala.binary.version}</include>
+                  <include>org.apache.spark:spark-h2o-perrier_${scala.binary.version}</include>
+                  <include>ai.h2o:h2o-scala_${scala.binary.version}</include>
                   <include>ai.h2o:h2o-app</include>
+                  <include>ai.h2o:h2o-core</include>
+                  <include>ai.h2o:h2o-web</include>
+                  <include>ai.h2o:h2o-algos</include>
                   <!--
                   <include>org.apache.spark:spark-h2o-perrier_${scala.binary.version}</include>
                   <include>ai.h2o:h2o-algos</include>
