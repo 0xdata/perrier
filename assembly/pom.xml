@@ -78,14 +78,6 @@
       <artifactId>spark-sql_${scala.binary.version}</artifactId>
       <version>${project.version}</version>
     </dependency>
-    <!-- TODO: perrier is part of h2o assembly, but we should figure out different way of extending
-         Spark platform -->
-    <dependency>
-      <groupId>org.apache.spark</groupId>
-      <artifactId>spark-h2o-perrier_${scala.binary.version}</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-
   </dependencies>
 
   <build>
