@@ -17,17 +17,10 @@
 
 package org.apache.spark.mllib.classification
 
-import java.lang.Exception
-import java.util
-
 import hex.deeplearning.DeepLearning
 import hex.deeplearning.DeepLearningModel.DeepLearningParameters
-import hex.schemas.DeepLearningV2.DeepLearningParametersV2
 import org.apache.spark.h2o.H2OContext
-import org.apache.spark.mllib.linalg.Vectors
-import org.apache.spark.mllib.regression._
-import org.apache.spark.mllib.util.TestingUtils._
-import org.apache.spark.mllib.util.{LocalH2OContext, LocalClusterSparkContext, LocalSparkContext}
+import org.apache.spark.mllib.util.{LocalH2OContext, LocalSparkContext}
 import org.scalatest.{FunSuite, Matchers}
 import water.fvec.DataFrame
 
@@ -80,7 +73,7 @@ class DeepLearningSuite extends FunSuite with LocalSparkContext with LocalH2OCon
     val trainRDD = sc.parallelize(trainData, 2)
     trainRDD.cache()
 
-    import H2OContext._
+    import org.apache.spark.h2o.H2OContext._
     // Create H2O data frame
     val trainH2ORDD = toDataFrame(sc, trainRDD)
     // Launch Deep Learning:
