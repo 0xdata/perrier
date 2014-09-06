@@ -21,9 +21,12 @@ import java.io.File
 import java.util.Properties
 
 import hex.schemas.KMeansV2
+import org.apache.spark.executor.H2OPlatformExtension
 import org.apache.spark.h2o.H2OContext
 import org.apache.spark.rdd.RDD
+import org.apache.spark.scheduler.{SparkListenerApplicationEnd, SparkListenerApplicationStart, SparkListener}
 import org.apache.spark.sql.SQLContext
+import org.apache.spark.util.Utils
 import org.apache.spark.{SparkConf, SparkContext}
 import water.AutoBuffer
 import water.fvec.DataFrame
@@ -38,11 +41,9 @@ object ProstateDemo {
     // VM option -Dspark.master=spark://localhost:7077
     val sc = createSparkContext()
 
-    // Start H2O-in-Spark
-    if (sc.conf.get("spark.master").startsWith("local")) {
-      water.H2OApp.main2("../h2o-dev")
-      water.H2O.waitForCloudSize(1 /*One H2ONode to match the one Spark local-mode worker*/ , 1000)
-    }
+    // Wait for h2o cloud - this is not perfect since at this time executors should already run
+    // with embedded H2O
+    water.H2O.waitForCloudSize(2, 10000)
 
     // Load H2O from CSV file
     val frameFromCSV = new DataFrame(new File("h2o-examples/smalldata/prostate.csv"))
@@ -83,6 +84,10 @@ object ProstateDemo {
     //if (!local)
     //  conf.setJars(Seq("h2o-examples/target/spark-h2o-examples_2.10-1.1.0-SNAPSHOT.jar"))
     if (System.getProperty("spark.master")==null) conf.setMaster("local")
+    conf.set("spark.h2o", "true")
+    conf.set("spark.h2o.cluster.size", "2")
+    conf.addExtension[H2OPlatformExtension]
+
     new SparkContext(conf)
   }
 }

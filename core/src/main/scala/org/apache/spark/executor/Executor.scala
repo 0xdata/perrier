@@ -109,6 +109,11 @@ private[spark] class Executor(
   // Maintains the list of running tasks.
   private val runningTasks = new ConcurrentHashMap[Long, TaskRunner]
 
+  // List of Executor extensions launched in its lifecycle
+  private val extensions = createExtensions(conf, urlClassLoader)
+
+  start()
+
   startDriverHeartbeater()
 
   def launchTask(
@@ -125,10 +130,15 @@ private[spark] class Executor(
     }
   }
 
+  def start(): Unit = {
+    extensions.foreach(_.start(conf))
+  }
+
   def stop() {
     env.metricsSystem.report()
     isStopped = true
     threadPool.shutdown()
+    extensions.foreach(_.stop)
   }
 
   /** Get the Yarn approved local directories. */
@@ -144,6 +154,16 @@ private[spark] class Executor(
       throw new Exception("Yarn Local dirs can't be empty")
     }
     localDirs
+  }
+
+  private def createExtensions(conf: SparkConf, cl: ClassLoader):Seq[PlatformExtension] = {
+    val opt = conf.getOption("spark.extensions")
+    if (opt.isDefined) {
+      opt.get.split(',').map(extName => {
+        val klazz = Class.forName(extName, true, cl)
+        klazz.newInstance().asInstanceOf[PlatformExtension]
+      }).filter(ext => ext.intercept == InterceptionPoints.EXECUTOR_LC)
+    } else Seq()
   }
 
   class TaskRunner(
