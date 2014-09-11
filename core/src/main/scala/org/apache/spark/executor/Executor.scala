@@ -23,6 +23,7 @@ import java.nio.ByteBuffer
 import java.util.concurrent._
 
 import scala.collection.JavaConversions._
+import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 
 import org.apache.spark._
@@ -112,6 +113,7 @@ private[spark] class Executor(
   // List of Executor extensions launched in its lifecycle
   private val extensions = createExtensions(conf, urlClassLoader)
 
+  // Start this executor services
   start()
 
   startDriverHeartbeater()
@@ -131,7 +133,15 @@ private[spark] class Executor(
   }
 
   def start(): Unit = {
-    extensions.foreach(_.start(conf))
+    // Make sure that we are using the same classloader which was used
+    // for extension creation.
+    val ccl = Thread.currentThread().getContextClassLoader
+    Thread.currentThread().setContextClassLoader(urlClassLoader)
+    try {
+      extensions.foreach(_.start(conf))
+    } finally {
+      Thread.currentThread().setContextClassLoader(ccl);
+    }
   }
 
   def stop() {
@@ -144,8 +154,8 @@ private[spark] class Executor(
   /** Get the Yarn approved local directories. */
   private def getYarnLocalDirs(): String = {
     // Hadoop 0.23 and 2.x have different Environment variable names for the
-    // local dirs, so lets check both. We assume one of the 2 is set.
     // LOCAL_DIRS => 2.X, YARN_LOCAL_DIRS => 0.23.X
+    // local dirs, so lets check both. We assume one of the 2 is set.
     val localDirs = Option(System.getenv("YARN_LOCAL_DIRS"))
       .getOrElse(Option(System.getenv("LOCAL_DIRS"))
       .getOrElse(""))
@@ -157,10 +167,21 @@ private[spark] class Executor(
   }
 
   private def createExtensions(conf: SparkConf, cl: ClassLoader):Seq[PlatformExtension] = {
+    println("YYY: " + conf.toDebugString)
+    // Prefetch spark jars
+    val jars = conf.getOption("spark.jars")
+    val jmap = new mutable.HashMap[String, Long]()
+    if (jars.isDefined && !jars.get.isEmpty) {
+      jars.get.split(',').foreach( j => jmap.put(j, 1L))
+    }
+    updateDependencies(new mutable.HashMap[String,Long](), jmap)
+    println ("After dependency update!")
+
     val opt = conf.getOption("spark.extensions")
-    if (opt.isDefined) {
+    if (opt.isDefined && !opt.get.isEmpty) {
       opt.get.split(',').map(extName => {
         val klazz = Class.forName(extName, true, cl)
+        println( s"Creating extension based on $klazz class")
         klazz.newInstance().asInstanceOf[PlatformExtension]
       }).filter(ext => ext.intercept == InterceptionPoints.EXECUTOR_LC)
     } else Seq()

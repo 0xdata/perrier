@@ -17,21 +17,25 @@
 
 package org.apache.spark.executor
 
-import org.apache.spark.{SparkConf, PlatformExtension}
+import org.apache.spark.{Logging, SparkConf, PlatformExtension}
 
 /**
  * Spark extension launching H2O.
  */
-class H2OPlatformExtension extends PlatformExtension {
+class H2OPlatformExtension extends PlatformExtension with Logging {
   /** Method to start extension */
   override def start(conf: SparkConf): Unit = {
+    logDebug("Starting H2O Spark Extension...")
     water.H2O.main(new Array[String](0))
     water.H2O.finalizeRequest()
+    logDebug("H2O extension started.")
   }
 
   /** Method to stop extension */
   override def stop: Unit = {
+    logDebug("Stopping H2O Spark Extension...")
     // do nothing since we have no shutdown
+    logDebug("H2O extension stopped.")
   }
 
   /* description of extension */

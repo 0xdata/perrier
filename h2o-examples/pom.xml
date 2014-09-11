@@ -164,6 +164,8 @@
                   <include>ai.h2o:h2o-core</include>
                   <include>ai.h2o:h2o-web</include>
                   <include>ai.h2o:h2o-algos</include>
+                  <include>joda-time:joda-time</include>
+                  <include>org.javassist:javassist</include>
                   <!--
                   <include>org.apache.spark:spark-h2o-perrier_${scala.binary.version}</include>
                   <include>ai.h2o:h2o-algos</include>

@@ -22,8 +22,8 @@ import org.apache.spark.rdd.{H2ORDD, RDD}
 import org.apache.spark.sql.catalyst.types._
 import org.apache.spark.sql.{Row, SchemaRDD}
 import org.apache.spark.{SparkContext, TaskContext}
-import water.Key
-import water.fvec.DataFrame
+import water.{DKV, Key}
+import water.fvec.{Frame, DataFrame}
 
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
@@ -43,22 +43,41 @@ class H2OContext(@transient val sparkContext: SparkContext)
 
 object H2OContext {
 
+
   def toDataFrame(sc: SparkContext, rdd: SchemaRDD) : DataFrame = {
     val names = rdd.schema.fieldNames.toArray
     val types = rdd.schema.fields.map( field => dataTypeToClass(field.dataType) ).toArray
 
-    // Make an H2O data Frame - but with no backing data (yet)
-    val key = Key.rand
-    val fr = new water.fvec.Frame(key)
-    fr.preparePartialFrame(names)
+    // Make an H2O data Frame - but with no backing data (yet) - it has to be run in target environment
+    val keyName = "a.hex" //Key.rand // FIXME put there a name based on RDD
+    // FIXME: expects number of partitions > 0
+    // FIXME: here we are simulating RPC call, better would be contact H2O node directly via backend
+    // - in this case we have to wait since the backend is ready and then ask for location of executor
+    sc.runJob(rdd,
+      initFrame(keyName, names) _ ,
+      Seq(0), // Invoke code only on node with 1st partition
+      false) // Do not allow for running in driver locally
 
-    val rows = sc.runJob(rdd, perSQLPartition(key, types) _) // eager, not lazy, evaluation
+    val rows = sc.runJob(rdd, perSQLPartition(keyName, types) _) // eager, not lazy, evaluation
     val res = new Array[Long](rdd.partitions.size)
     rows.foreach{ case(cidx,nrows) => res(cidx) = nrows }
 
     // Add Vec headers per-Chunk, and finalize the H2O Frame
+    sc.runJob(rdd,
+      finalizeFrame(keyName, res) _,
+      Seq(0),
+      false
+    )
+    null
+  }
+
+  private def initFrame[T](keyName: String, names: Array[String])(it:Iterator[T]):Unit = {
+    val fr = new water.fvec.Frame(keyName)
+    fr.preparePartialFrame(names)
+  }
+  private def finalizeFrame[T](keyName: String, res: Array[Long])(it:Iterator[T]):Unit = {
+    val fr:Frame = DKV.get(keyName).get.asInstanceOf[Frame]
     fr.finalizePartialFrame(res)
-    new DataFrame(fr)
   }
 
   def toDataFrame[A <: Product : TypeTag](sc: SparkContext, rdd: RDD[A]) : DataFrame = {
@@ -95,7 +114,11 @@ object H2OContext {
       for( i <- 0 until types.length) {
         nchks(i).addNum(
           if (row.isNullAt(i)) Double.NaN
-          else row(i).asInstanceOf[Double]
+          else types(i) match {
+            case q if q==classOf[Integer] => row.getInt(i)
+            case q if q==classOf[java.lang.Double]  => row.getDouble(i)
+            case q if q==classOf[java.lang.Float]   => row.getFloat(i)
+          }
         )
       }
     })

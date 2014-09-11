@@ -20,17 +20,23 @@ package org.apache.spark.examples.h2o
 import java.io.File
 import java.util.Properties
 
+import hex.kmeans.KMeans
+import hex.kmeans.KMeansModel.KMeansParameters
 import hex.schemas.KMeansV2
 import org.apache.spark.executor.H2OPlatformExtension
 import org.apache.spark.h2o.H2OContext
 import org.apache.spark.rdd.RDD
-import org.apache.spark.scheduler.{SparkListenerApplicationEnd, SparkListenerApplicationStart, SparkListener}
+import org.apache.spark.scheduler.{SplitInfo, SparkListenerApplicationEnd, SparkListenerApplicationStart, SparkListener}
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.util.Utils
-import org.apache.spark.{SparkConf, SparkContext}
-import water.AutoBuffer
+import org.apache.spark.{SparkFiles, SparkConf, SparkContext}
+import water.{Key, AutoBuffer}
 import water.fvec.DataFrame
 
+/* Demonstrates:
+   - data transfer from RDD into H2O
+   - algorithm call
+ */
 object ProstateDemo {
 
   def main(args: Array[String]) {
@@ -38,17 +44,24 @@ object ProstateDemo {
     // Create Spark context which will drive computation
     // By default we use local spark context (which is useful for development)
     // but for cluster spark context, you should pass
-    // VM option -Dspark.master=spark://localhost:7077
+    // VM option -Dspark.master=spark://localhost:7077 or via shell variable MASTER
     val sc = createSparkContext()
+    // Add a file to be available for cluster mode
+    // FIXME: absolute path is here because in cluster deployment mode the file is not found (JVM path is different from .)
+    sc.addFile("/Users/michal/Devel/projects/h2o/repos/perrier/h2o-examples/smalldata/prostate.csv")
 
+    // FIXME: this should not be here !!!
     // Wait for h2o cloud - this is not perfect since at this time executors should already run
     // with embedded H2O
-    water.H2O.waitForCloudSize(2, 10000)
+    // Note: FIXME: this is not correct, since even in local mode Executor will launch H2O node, but lazily
+    val nworkers = if (sc.isLocal) 0 else 2
+    //water.H2O.waitForCloudSize(1 + nworkers, 100000)
 
-    // Load H2O from CSV file
-    val frameFromCSV = new DataFrame(new File("h2o-examples/smalldata/prostate.csv"))
-
-    val table : RDD[Prostate] = H2OContext.toRDD[Prostate](sc,frameFromCSV)
+    // Load raw data
+    val parse = ProstateParse
+    val rawdata = sc.textFile(SparkFiles.get("prostate.csv"), 2)
+    // Parse data into plain RDD[Prostate]
+    val table = rawdata.map(_.split(",")).map(line => parse(line))
 
     // Convert to SQL type RDD
     val sqlContext = new SQLContext(sc)
@@ -59,21 +72,34 @@ object ProstateDemo {
     val query = "SELECT * FROM prostate_table WHERE CAPSULE=1"
     val result = sql(query) // Using a registered context and tables
 
-    // Convert back to H2O
+    import H2OContext._
+    // Convert RDD to H2O Frame
     val frameFromQuery = H2OContext.toDataFrame(sc,result)
 
-    // Build a KMeansV2 model, setting model parameters via a Properties
-    val props = new Properties
-    for ((k,v) <- Seq("K"->"3")) props.setProperty(k,v)
-    val job = new KMeansV2().fillFromParms(props).createImpl(frameFromQuery)
+    println("After to data frame")
+    // Build a KMeans model, setting model parameters via a Properties
+    sc.runJob(result,
+      runKmeans("a.hex") _,
+      Seq(0),
+      false
+    )
+
+    // FIXME: shutdown H2O cloud not JVMs since we are embedded inside Spark JVM
+    // Stop Spark local worker; stop H2O worker
+    sc.stop()
+  }
+
+  private def runKmeans[T](keyName: String)(it : Iterator[T]): Unit = {
+    val params = new KMeansParameters
+    params._training_frame = Key.make(keyName)
+    params._K = 3
+    // Create a builder
+    val job = new KMeans(params)
+    // Launch a job and wait for the end.
     val kmm = job.train().get()
     job.remove()
     // Print the JSON model
     println(new String(kmm._output.writeJSON(new AutoBuffer()).buf()))
-
-    // Stop Spark local worker; stop H2O worker
-    sc.stop()
-    water.H2O.exit(0)
   }
 
   private def createSparkContext(sparkMaster:String = null): SparkContext = {
@@ -81,11 +107,12 @@ object ProstateDemo {
     val conf = new SparkConf()
       .setAppName("H2O Integration Example")
       //.set("spark.executor.memory", "1g")
-    //if (!local)
-    //  conf.setJars(Seq("h2o-examples/target/spark-h2o-examples_2.10-1.1.0-SNAPSHOT.jar"))
     if (System.getProperty("spark.master")==null) conf.setMaster("local")
     conf.set("spark.h2o", "true")
     conf.set("spark.h2o.cluster.size", "2")
+    conf.set("spark.eventLog.enabled ", "true")
+    conf.set("spark.eventLog.dir", "/Tmp/spark-app")
+
     conf.addExtension[H2OPlatformExtension]
 
     new SparkContext(conf)
@@ -103,4 +130,13 @@ case class Prostate(ID      :Option[Int]  ,
                     VOL     :Option[Float],
                     GLEASON :Option[Int]  ) {
 }
+
+/** A dummy csv parser for prostate dataset. */
+object ProstateParse extends Serializable {
+  def apply(row: Array[String]): Prostate = {
+    import SchemaUtils._
+    Prostate(int(row(0)), int(row(1)), int(row(2)), int(row(3)), int(row(4)), int(row(5)), float(row(6)), float(row(7)), int(row(8)) )
+  }
+}
+
 
