@@ -50,12 +50,7 @@ object ProstateDemo {
     // FIXME: absolute path is here because in cluster deployment mode the file is not found (JVM path is different from .)
     sc.addFile("/Users/michal/Devel/projects/h2o/repos/perrier/h2o-examples/smalldata/prostate.csv")
 
-    // FIXME: this should not be here !!!
-    // Wait for h2o cloud - this is not perfect since at this time executors should already run
-    // with embedded H2O
-    // Note: FIXME: this is not correct, since even in local mode Executor will launch H2O node, but lazily
-    val nworkers = if (sc.isLocal) 0 else 2
-    //water.H2O.waitForCloudSize(1 + nworkers, 100000)
+    // We do not need to wait for H2O cloud since it will be launched by backend
 
     // Load raw data
     val parse = ProstateParse

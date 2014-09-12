@@ -43,7 +43,6 @@ class H2OContext(@transient val sparkContext: SparkContext)
 
 object H2OContext {
 
-
   def toDataFrame(sc: SparkContext, rdd: SchemaRDD) : DataFrame = {
     val names = rdd.schema.fieldNames.toArray
     val types = rdd.schema.fields.map( field => dataTypeToClass(field.dataType) ).toArray
@@ -73,12 +72,10 @@ object H2OContext {
   }
 
   private def initFrame[T](keyName: String, names: Array[String])(it:Iterator[T]):Unit = {
-    println ("Inside init frame " + names.mkString(","))
     val fr = new water.fvec.Frame(keyName)
-    println ("After new Frame")
     fr.preparePartialFrame(names)
+    // Save it directly to DKV
     fr.update(null)
-    println ("After preparePartialFrame")
   }
   private def finalizeFrame[T](keyName: String, res: Array[Long])(it:Iterator[T]):Unit = {
     val fr:Frame = DKV.get(keyName).get.asInstanceOf[Frame]
