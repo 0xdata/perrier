@@ -53,6 +53,7 @@ object H2OContext {
     // FIXME: expects number of partitions > 0
     // FIXME: here we are simulating RPC call, better would be contact H2O node directly via backend
     // - in this case we have to wait since the backend is ready and then ask for location of executor
+    println("Before preparing frame referenced by ket " + keyName)
     sc.runJob(rdd,
       initFrame(keyName, names) _ ,
       Seq(0), // Invoke code only on node with 1st partition
@@ -72,8 +73,12 @@ object H2OContext {
   }
 
   private def initFrame[T](keyName: String, names: Array[String])(it:Iterator[T]):Unit = {
+    println ("Inside init frame " + names.mkString(","))
     val fr = new water.fvec.Frame(keyName)
+    println ("After new Frame")
     fr.preparePartialFrame(names)
+    fr.update(null)
+    println ("After preparePartialFrame")
   }
   private def finalizeFrame[T](keyName: String, res: Array[Long])(it:Iterator[T]):Unit = {
     val fr:Frame = DKV.get(keyName).get.asInstanceOf[Frame]
@@ -110,6 +115,7 @@ object H2OContext {
   def perSQLPartition ( keystr: String, types: Array[Class[_]] )
                       ( context: TaskContext, it: Iterator[Row] ): (Int,Long) = {
     val nchks = water.fvec.Frame.createNewChunks(keystr,context.partitionId)
+    println (nchks.length + " Types: " + types.mkString(","))
     it.foreach(row => {
       for( i <- 0 until types.length) {
         nchks(i).addNum(
@@ -118,6 +124,7 @@ object H2OContext {
             case q if q==classOf[Integer] => row.getInt(i)
             case q if q==classOf[java.lang.Double]  => row.getDouble(i)
             case q if q==classOf[java.lang.Float]   => row.getFloat(i)
+            case _ => Double.NaN
           }
         )
       }
