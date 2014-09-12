@@ -81,7 +81,7 @@ class DeepLearningSuite extends FunSuite with LocalSparkContext with LocalH2OCon
     val dlParams = new DeepLearningParameters()
 
     dlParams.source = trainH2ORDD
-    dlParams.response = trainH2ORDD.lastVec()
+    dlParams.response_vec = trainH2ORDD.lastVec()
     dlParams.classification = true
 
     // - create a model builder
