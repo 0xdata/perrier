@@ -70,12 +70,6 @@
         </exclusion>
       </exclusions>
     </dependency>
-    <!-- FIXME: this reference is not necessary but we want to be sure that h2o-algos are part of runtime -->
-    <dependency>
-      <groupId>ai.h2o</groupId>
-      <artifactId>h2o-algos</artifactId>
-      <version>${h2o.version}</version>
-    </dependency>
     <dependency>
       <groupId>ai.h2o</groupId>
       <artifactId>h2o-scala_${scala.binary.version}</artifactId>
