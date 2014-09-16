@@ -18,9 +18,10 @@
 package org.apache.spark.examples.h2o
 
 import java.io.File
+import java.util
 import java.util.Properties
 
-import hex.kmeans.KMeans
+import hex.kmeans.{KMeansModel, KMeans}
 import hex.kmeans.KMeansModel.KMeansParameters
 import hex.schemas.KMeansV2
 import org.apache.spark.executor.H2OPlatformExtension
@@ -30,7 +31,7 @@ import org.apache.spark.scheduler.{SplitInfo, SparkListenerApplicationEnd, Spark
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.util.Utils
 import org.apache.spark.{SparkFiles, SparkConf, SparkContext}
-import water.{Key, AutoBuffer}
+import water._
 import water.fvec.DataFrame
 
 /* Demonstrates:
@@ -69,22 +70,40 @@ object ProstateDemo {
 
     import H2OContext._
     // Convert RDD to H2O Frame
+    // Install type map
     val frameFromQuery = H2OContext.toDataFrame(sc,result)
 
     println("After to data frame")
     // Build a KMeans model, setting model parameters via a Properties
-    sc.runJob(result,
+    val model:Array[KMeansModelPOJO] = sc.runJob(result,
       runKmeans("a.hex") _,
       Seq(0),
       false
     )
+    println(model.mkString(","))
 
     // FIXME: shutdown H2O cloud not JVMs since we are embedded inside Spark JVM
     // Stop Spark local worker; stop H2O worker
     sc.stop()
   }
 
-  private def runKmeans[T](keyName: String)(it : Iterator[T]): Unit = {
+  /* BIG HACK: fetching type map to achieve H2O Iced deserialization
+  private def fetchTypeMap[T](it: Iterator[T]): java.util.Map[String, Integer] = {
+    // dummy load
+    new KMeansModel()
+    val map = TypeMap.MAP
+    import scala.collection.JavaConversions._
+    map.foreach { e => println (s"${e._1} = ${e._2}") }
+    map
+  }
+
+  private def xx(rdd:RDD[_], sc: SparkContext):Unit = {
+    val maps = sc.runJob(rdd, fetchTypeMap _, Seq(0), false)
+    val map = maps(0)
+    TypeMap.reinstall(map)
+  }*/
+
+  private def runKmeans[T](keyName: String)(it : Iterator[T]): KMeansModelPOJO = {
     val params = new KMeansParameters
     params._training_frame = Key.make(keyName)
     params._K = 3
@@ -95,6 +114,9 @@ object ProstateDemo {
     job.remove()
     // Print the JSON model
     println(new String(kmm._output.writeJSON(new AutoBuffer()).buf()))
+    // FIXME: we cannot return directly KMeansModel since it is serialized by internal Icer (even it is Java based serialization)
+    // Possibilities: return a holder for model | return JSON | have proper client mode
+    new KMeansModelPOJO
   }
 
   private def createSparkContext(sparkMaster:String = null): SparkContext = {
@@ -104,13 +126,17 @@ object ProstateDemo {
       //.set("spark.executor.memory", "1g")
     if (System.getProperty("spark.master")==null) conf.setMaster("local")
     conf.set("spark.h2o", "true")
-    conf.set("spark.h2o.cluster.size", "2")
+    // For local development always wait for cloud of size 1
+    conf.set("spark.h2o.cluster.size", if (conf.get("spark.master").startsWith("local")) "1" else "2")
     conf.set("spark.eventLog.enabled ", "true")
     conf.set("spark.eventLog.dir", "/Tmp/spark-app")
 
     conf.addExtension[H2OPlatformExtension]
 
     new SparkContext(conf)
+  }
+
+  class KMeansModelPOJO extends Serializable {
   }
 }
 

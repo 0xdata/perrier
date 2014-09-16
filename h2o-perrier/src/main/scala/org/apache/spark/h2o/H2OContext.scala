@@ -17,13 +17,12 @@
 
 package org.apache.spark.h2o
 
-import org.apache.spark.annotation.AlphaComponent
 import org.apache.spark.rdd.{H2ORDD, RDD}
 import org.apache.spark.sql.catalyst.types._
 import org.apache.spark.sql.{Row, SchemaRDD}
 import org.apache.spark.{SparkContext, TaskContext}
+import water.fvec.{DataFrame, Frame}
 import water.{DKV, Key}
-import water.fvec.{Frame, DataFrame}
 
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
@@ -39,6 +38,11 @@ class H2OContext(@transient val sparkContext: SparkContext)
   with H2OConf
   with Serializable {
 
+
+  /** Execute given code as Spark job */
+  def @>[T]( code: => Unit)(implicit rdd:RDD[T]): Unit = {
+    code
+  }
 }
 
 object H2OContext {
@@ -112,7 +116,7 @@ object H2OContext {
   def perSQLPartition ( keystr: String, types: Array[Class[_]] )
                       ( context: TaskContext, it: Iterator[Row] ): (Int,Long) = {
     val nchks = water.fvec.Frame.createNewChunks(keystr,context.partitionId)
-    println (nchks.length + " Types: " + types.mkString(","))
+    //println (nchks.length + " Types: " + types.mkString(","))
     it.foreach(row => {
       for( i <- 0 until types.length) {
         nchks(i).addNum(
