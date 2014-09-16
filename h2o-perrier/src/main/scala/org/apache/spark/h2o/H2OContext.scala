@@ -52,7 +52,7 @@ object H2OContext {
     val types = rdd.schema.fields.map( field => dataTypeToClass(field.dataType) ).toArray
 
     // Make an H2O data Frame - but with no backing data (yet) - it has to be run in target environment
-    val keyName = "a.hex" //Key.rand // FIXME put there a name based on RDD
+    val keyName = Key.rand // FIXME put there a name based on RDD
     // FIXME: expects number of partitions > 0
     // FIXME: here we are simulating RPC call, better would be contact H2O node directly via backend
     // - in this case we have to wait since the backend is ready and then ask for location of executor
@@ -91,17 +91,24 @@ object H2OContext {
     val fnames = names[A]
 
     // Make an H2O data Frame - but with no backing data (yet)
-    val key = Key.rand
-    val fr = new water.fvec.Frame(key)
-    fr.preparePartialFrame(fnames)
+    val keyName = Key.rand
+    sc.runJob(rdd,
+      initFrame(keyName, names) _ ,
+      Seq(0), // Invoke code only on node with 1st partition
+      false) // Do not allow for running in driver locally
 
-    val rows = sc.runJob(rdd, perRDDPartition(key) _) // eager, not lazy, evaluation
+    val rows = sc.runJob(rdd, perRDDPartition(keyName) _) // eager, not lazy, evaluation
     val res = new Array[Long](rdd.partitions.size)
     rows.foreach{ case(cidx,nrows) => res(cidx) = nrows }
 
     // Add Vec headers per-Chunk, and finalize the H2O Frame
-    fr.finalizePartialFrame(res)
-    new DataFrame(fr)
+    // Add Vec headers per-Chunk, and finalize the H2O Frame
+    sc.runJob(rdd,
+      finalizeFrame(keyName, res) _,
+      Seq(0),
+      false
+    )
+    null
   }
 
   private def dataTypeToClass(dt : DataType):Class[_] = dt match {

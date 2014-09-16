@@ -26,12 +26,12 @@ trait PlatformExtension extends Serializable {
   /** Method to start extension */
   def start(conf: SparkConf):Unit
   /** Method to stop extension */
-  def stop:Unit
+  def stop (conf: SparkConf):Unit
 
   /* Point in Spark infrastructure which will be intercepted by this extension. */
   def intercept: InterceptionPoints = InterceptionPoints.EXECUTOR_LC
 
-  /* description of extension */
+  /* User-friendly description of extension */
   def desc:String
 
   override def toString = s"$desc@$intercept"

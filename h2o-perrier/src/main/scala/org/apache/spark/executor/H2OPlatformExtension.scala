@@ -29,12 +29,12 @@ class H2OPlatformExtension extends PlatformExtension with Logging {
     water.H2O.main(new Array[String](0))
     water.H2O.finalizeRequest()
     // FIXME we can continue only if all H2O nodes are ready
-    water.H2O.waitForCloudSize(conf.getInt("spark.h2o.cluster.size", 1), 10000) // FIXME this is hack!
+    water.H2O.waitForCloudSize(conf.getInt("spark.h2o.cluster.size", 1), 10000) // FIXME this is hack! We should figure out cloud size
     logDebug("H2O extension started.")
   }
 
   /** Method to stop extension */
-  override def stop: Unit = {
+  override def stop(conf: SparkConf): Unit = {
     logDebug("Stopping H2O Spark Extension...")
     // do nothing since we have no shutdown
     logDebug("H2O extension stopped.")

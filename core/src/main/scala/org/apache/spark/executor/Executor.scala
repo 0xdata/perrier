@@ -148,7 +148,7 @@ private[spark] class Executor(
     env.metricsSystem.report()
     isStopped = true
     threadPool.shutdown()
-    extensions.foreach(_.stop)
+    extensions.foreach(_.stop(conf))
   }
 
   /** Get the Yarn approved local directories. */

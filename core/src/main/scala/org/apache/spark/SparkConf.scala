@@ -47,7 +47,6 @@ class SparkConf(loadDefaults: Boolean) extends Cloneable with Logging {
   def this() = this(true)
 
   private val settings = new HashMap[String, String]()
-  private val extensions = new ArrayBuffer[String]
 
   if (loadDefaults) {
     // Load any spark.* system properties
@@ -164,11 +163,7 @@ class SparkConf(loadDefaults: Boolean) extends Cloneable with Logging {
   }
 
   /** Get all parameters as a list of pairs */
-  def getAll: Array[(String, String)] = {
-    val s = settings.clone()
-    s.put("spark.extensions", extensions.mkString(","))
-    s.toArray
-  }
+  def getAll: Array[(String, String)] = settings.clone().toArray
 
   /** Get a parameter as an integer, falling back to a default if not set */
   def getInt(key: String, defaultValue: Int): Int = {
@@ -213,7 +208,7 @@ class SparkConf(loadDefaults: Boolean) extends Cloneable with Logging {
 
   /** Copy this object */
   override def clone: SparkConf = {
-    new SparkConf(false).setAll(settings).setAllExtensions(extensions)
+    new SparkConf(false).setAll(settings)
   }
 
   /** Checks for illegal or deprecated config settings. Throws an exception for the former. Not
@@ -307,13 +302,13 @@ class SparkConf(loadDefaults: Boolean) extends Cloneable with Logging {
   }
 
   // Add a list of extensions
-  def addExtension[T <: PlatformExtension : ClassTag]: Unit = {
-    extensions += implicitly[ClassTag[T]].runtimeClass.getCanonicalName
-  }
-
-  private def setAllExtensions(extensions : ArrayBuffer[String]) = {
-    this.extensions.clear()
-    this.extensions ++= extensions
+  def addExtension[T <: PlatformExtension : ClassTag]: SparkConf = {
+    val name = implicitly[ClassTag[T]].runtimeClass.getCanonicalName
+    val exts = settings.get("spark.extensions") match {
+      case Some(v) => s"${v},${name}"
+      case None    => name
+    }
+    settings.update("spark.extensions", exts)
     this
   }
 
@@ -324,7 +319,7 @@ class SparkConf(loadDefaults: Boolean) extends Cloneable with Logging {
   def toDebugString: String = {
     settings.toArray.sorted.map {
       case (k, v) => k + "=" + v
-    }.mkString("\n") + "\nExtensions:" + extensions.mkString(",")
+    }.mkString("\n")
   }
 }
 
