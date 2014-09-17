@@ -118,8 +118,6 @@ object ProstateDemo {
     conf.set("spark.h2o", "true")
     // For local development always wait for cloud of size 1
     conf.set("spark.h2o.cluster.size", if (conf.get("spark.master").startsWith("local")) "1" else "2")
-    conf.set("spark.eventLog.enabled ", "true")
-    conf.set("spark.eventLog.dir", "/Tmp/spark-app")
 
     conf.addExtension[H2OPlatformExtension]
 

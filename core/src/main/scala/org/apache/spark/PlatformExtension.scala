@@ -20,7 +20,7 @@ package org.apache.spark
 import org.apache.spark.InterceptionPoints.InterceptionPoints
 
 
-/** Notion of Spark platform extension. */
+/** Notion of Spark application platform extension. */
 trait PlatformExtension extends Serializable {
 
   /** Method to start extension */
