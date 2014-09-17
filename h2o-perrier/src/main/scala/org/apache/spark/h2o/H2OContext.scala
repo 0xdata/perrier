@@ -38,9 +38,24 @@ class H2OContext(@transient val sparkContext: SparkContext)
   with H2OConf
   with Serializable {
 
+  /** Implicit conversion from SchemaRDD to H2O's DataFrame */
+  implicit def createDataFrame(rdd : SchemaRDD) : DataFrame = toDataFrame(rdd)
+
+  /** Implicit conversion from typed RDD to H2O's DataFrame */
+  implicit def createDataFrame[A <: Product](rdd : RDD[A]) : DataFrame = toDataFrame(rdd)
+
+  /** Implicit conversion from Frame to DataFrame */
+  implicit def createDataFrame(fr: Frame) : DataFrame = new DataFrame(fr)
+
+  def toDataFrame(rdd: SchemaRDD) : DataFrame = H2OContext.toDataFrame(sparkContext, rdd)
+
+  def toDataFrame[A <: Product : TypeTag](rdd: RDD[A]) : DataFrame = H2OContext.toDataFrame(sparkContext, rdd)
+
+  def toRDD[A <: Product: TypeTag: ClassTag]( fr : DataFrame ) : RDD[A] = new H2ORDD[A](sparkContext,fr)
+
 
   /** Execute given code as Spark job */
-  def @>[T]( code: => Unit)(implicit rdd:RDD[T]): Unit = {
+  def |>[T]( code: => Unit)(implicit rdd:RDD[T]): Unit = {
     code
   }
 }

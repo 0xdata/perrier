@@ -17,20 +17,12 @@
 
 package org.apache.spark.examples.h2o
 
-import java.io.File
-import java.util
-import java.util.Properties
-
-import hex.kmeans.{KMeansModel, KMeans}
+import hex.kmeans.KMeans
 import hex.kmeans.KMeansModel.KMeansParameters
-import hex.schemas.KMeansV2
 import org.apache.spark.executor.H2OPlatformExtension
 import org.apache.spark.h2o.H2OContext
-import org.apache.spark.rdd.RDD
-import org.apache.spark.scheduler.{SplitInfo, SparkListenerApplicationEnd, SparkListenerApplicationStart, SparkListener}
 import org.apache.spark.sql.SQLContext
-import org.apache.spark.util.Utils
-import org.apache.spark.{SparkFiles, SparkConf, SparkContext}
+import org.apache.spark.{SparkConf, SparkContext, SparkFiles}
 import water._
 import water.fvec.DataFrame
 
@@ -68,15 +60,13 @@ object ProstateDemo {
     val query = "SELECT * FROM prostate_table WHERE CAPSULE=1"
     val result = sql(query) // Using a registered context and tables
 
-    import H2OContext._
-    // Convert RDD to H2O Frame
-    // Install type map
-    val frameFromQuery = H2OContext.toDataFrame(sc,result)
+    // We would like to use H2O RDDs
+    val h2oContext = new H2OContext(sc)
+    import h2oContext._
 
-    println("After to data frame")
     // Build a KMeans model, setting model parameters via a Properties
     val model:Array[KMeansModelPOJO] = sc.runJob(result,
-      runKmeans("a.hex") _,
+      runKmeans(result) _, // Use implicit conversion
       Seq(0),
       false
     )
@@ -103,9 +93,9 @@ object ProstateDemo {
     TypeMap.reinstall(map)
   }*/
 
-  private def runKmeans[T](keyName: String)(it : Iterator[T]): KMeansModelPOJO = {
+  private def runKmeans[T](trainDataFrame: DataFrame)(it : Iterator[T]): KMeansModelPOJO = {
     val params = new KMeansParameters
-    params._training_frame = Key.make(keyName)
+    params._training_frame = trainDataFrame._key
     params._K = 3
     // Create a builder
     val job = new KMeans(params)
@@ -155,7 +145,7 @@ case class Prostate(ID      :Option[Int]  ,
 /** A dummy csv parser for prostate dataset. */
 object ProstateParse extends Serializable {
   def apply(row: Array[String]): Prostate = {
-    import SchemaUtils._
+    import org.apache.spark.examples.h2o.SchemaUtils._
     Prostate(int(row(0)), int(row(1)), int(row(2)), int(row(3)), int(row(4)), int(row(5)), float(row(6)), float(row(7)), int(row(8)) )
   }
 }

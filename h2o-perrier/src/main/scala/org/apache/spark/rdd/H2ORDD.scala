@@ -18,7 +18,8 @@
 package org.apache.spark.rdd
 
 
-import org.apache.spark.h2o.ReflectionUtils
+import org.apache.spark.h2o.{H2OContext, ReflectionUtils}
+import org.apache.spark.sql.SchemaRDD
 import org.apache.spark.{Partition, SparkContext, TaskContext}
 import water.fvec.DataFrame
 import water.{DKV, Key}
@@ -31,10 +32,10 @@ import scala.reflect.runtime.universe._
  */
 
 private[spark]
-class H2ORDD[A <: Product: TypeTag: ClassTag] private (@transient sc: SparkContext,
+class H2ORDD[A <: Product: TypeTag: ClassTag] private (@transient val h2oContext: H2OContext,
                                                        @transient fr: DataFrame,
                                                        val colNames: Array[String])
-  extends RDD[A](sc, Nil) {
+  extends RDD[A](h2oContext.sparkContext, Nil) with H2ORDDLike {
 
   // Get column names before building an RDD
   def this(sc: SparkContext, fr : DataFrame ) = this(sc,fr,ReflectionUtils.names[A])

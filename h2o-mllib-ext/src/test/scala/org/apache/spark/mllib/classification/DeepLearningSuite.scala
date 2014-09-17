@@ -20,7 +20,8 @@ package org.apache.spark.mllib.classification
 import hex.deeplearning.DeepLearning
 import hex.deeplearning.DeepLearningModel.DeepLearningParameters
 import org.apache.spark.h2o.H2OContext
-import org.apache.spark.mllib.util.{LocalH2OContext, LocalSparkContext}
+import org.apache.spark.h2o.H2OContext._
+import org.apache.spark.mllib.util.{LocalClusterWithH2OSparkContext, LocalH2OContext, LocalSparkContext}
 import org.scalatest.{FunSuite, Matchers}
 import water.fvec.DataFrame
 
@@ -73,15 +74,15 @@ class DeepLearningSuite extends FunSuite with LocalSparkContext with LocalH2OCon
     val trainRDD = sc.parallelize(trainData, 2)
     trainRDD.cache()
 
-    import org.apache.spark.h2o.H2OContext._
-    // Create H2O data frame
-    val trainH2ORDD = toDataFrame(sc, trainRDD)
+    // Import H2O related functions
+    val h2oContext = new H2OContext(sc)
+    import h2oContext._
     // Launch Deep Learning:
     // - configure parameters
     val dlParams = new DeepLearningParameters()
 
-    dlParams.source = trainH2ORDD
-    dlParams.response_vec = trainH2ORDD.lastVec()
+    dlParams.source = trainRDD // Note: train to avoid double implicit transformation to H2O form
+    dlParams.response_vec = dlParams.source.lastVec()
     dlParams.classification = true
 
     // - create a model builder
@@ -92,10 +93,10 @@ class DeepLearningSuite extends FunSuite with LocalSparkContext with LocalH2OCon
 
     val validationData = DeepLearningSuite.generateLogisticInput(A, B, nPoints, 17)
     val validationRDD = sc.parallelize(validationData, 2)
-    val validationH2ORDD = toDataFrame(sc, validationRDD)
     // Score validation data
-    val predictionH2OFrame = new DataFrame(dlModel.score(validationH2ORDD))('predict) // Missing implicit conversion
-    val predictionRDD = toRDD[DoubleHolder](sc, predictionH2OFrame)
+    val predictionH2OFrame = dlModel.score(validationRDD)('predict) // Implicit conversion from Frame -> DataFrame
+    // NOTE: This conversion is explicit since we need to pass type for conversion
+    val predictionRDD = toRDD[DoubleHolder](predictionH2OFrame)
     // Validate prediction
     validatePrediction( predictionRDD.collect().map (_.predict.getOrElse(Double.NaN)), validationData)
 
@@ -111,3 +112,34 @@ class DeepLearningSuite extends FunSuite with LocalSparkContext with LocalH2OCon
 }
 
 case class DoubleHolder(predict: Option[Double])
+
+class DeepLearningClusterSuite extends FunSuite with LocalClusterWithH2OSparkContext {
+
+  test("task size should be small in both training and prediction") {
+    val m = 4
+    val n = 200000
+    val trainRDD = sc.parallelize(0 until m, 2).mapPartitionsWithIndex { (idx, iter) =>
+      val random = new Random(idx)
+      iter.map(i => ThePoint(1.0, random.nextDouble()))
+    }.cache()
+
+    // If we serialize data directly in the task closure, the size of the serialized task would be
+    // greater than 1MB and hence Spark would throw an error.
+    import org.apache.spark.h2o.H2OContext._
+    // Create H2O data frame
+    val trainH2ORDD = toDataFrame(sc, trainRDD)
+    // Launch Deep Learning:
+    // - configure parameters
+    val dlParams = new DeepLearningParameters()
+
+    dlParams.source = trainH2ORDD
+    dlParams.response_vec = trainH2ORDD.lastVec()
+    dlParams.classification = true
+
+    // - create a model builder
+    val dl = new DeepLearning(dlParams)
+    val dlModel = dl.train().get()
+
+    val predictions = toRDD[DoubleHolder](sc, new DataFrame(dlModel.score(trainH2ORDD))('predict))
+  }
+}
