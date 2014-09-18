@@ -38,7 +38,7 @@ class H2ORDD[A <: Product: TypeTag: ClassTag] private (@transient val h2oContext
   extends RDD[A](h2oContext.sparkContext, Nil) with H2ORDDLike {
 
   // Get column names before building an RDD
-  def this(sc: SparkContext, fr : DataFrame ) = this(sc,fr,ReflectionUtils.names[A])
+  def this(h2oContext: H2OContext, fr : DataFrame ) = this(h2oContext,fr,ReflectionUtils.names[A])
   // Cache a way to get DataFrame from the K/V
   val keyName = fr._key.toString
   // Check that DataFrame & given Scala type are compatible
@@ -50,14 +50,10 @@ class H2ORDD[A <: Product: TypeTag: ClassTag] private (@transient val h2oContext
   }
   @transient val jc = implicitly[ClassTag[A]].runtimeClass
   @transient val cs = jc.getConstructors
-  if( cs.length != 1 ) {
-    throw new IllegalArgumentException("Class " + typeTag[A] +
-      " does not have exactly 1 constructor, I do not know which one to use")
-  }
-  @transient val ccr = cs(0)
-  if( ccr.getParameterTypes.length != colNames.length ) {
-    throw new IllegalArgumentException("Constructor must take exactly " + colNames.length + " args")
-  }
+  @transient val ccr = cs.collectFirst(
+        { case c if (c.getParameterTypes.length==colNames.length) => c })
+        .getOrElse( {
+                      throw new IllegalArgumentException(s"Constructor must take exactly ${colNames.length} args")})
 
   /**
    * :: DeveloperApi ::
@@ -69,7 +65,8 @@ class H2ORDD[A <: Product: TypeTag: ClassTag] private (@transient val h2oContext
 
       val jc = implicitly[ClassTag[A]].runtimeClass
       val cs = jc.getConstructors
-      val ccr = cs(0)
+      val ccr = cs.collectFirst({ case c if (c.getParameterTypes.length==colNames.length) => c })
+        .getOrElse( { throw new IllegalArgumentException(s"Constructor must take exactly ${colNames.length} args")})
 
       val chks = fr.getChunks(split.index)
       val nrows = chks(0).len
@@ -77,7 +74,10 @@ class H2ORDD[A <: Product: TypeTag: ClassTag] private (@transient val h2oContext
       def hasNext: Boolean = row < nrows
       def next(): A = {
         val data : Array[Option[Any]] =
-          for( chk <- chks ) yield if( chk.isNA0(row) ) None else Some(chk.at0(row))
+          for( chk <- chks )
+            yield if( chk.isNA0(row) ) None
+              else if (chk.vec().isEnum) Some( chk.vec().domain()(chk.at0(row).asInstanceOf[Int]))
+              else Some(chk.at0(row))
         row += 1
         ccr.newInstance(data:_*).asInstanceOf[A]
       }

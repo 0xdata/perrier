@@ -42,7 +42,7 @@ class H2OContext(@transient val sparkContext: SparkContext)
   implicit def createDataFrame(rdd : SchemaRDD) : DataFrame = toDataFrame(rdd)
 
   /** Implicit conversion from typed RDD to H2O's DataFrame */
-  implicit def createDataFrame[A <: Product](rdd : RDD[A]) : DataFrame = toDataFrame(rdd)
+  implicit def createDataFrame[A <: Product : TypeTag](rdd : RDD[A]) : DataFrame = toDataFrame(rdd)
 
   /** Implicit conversion from Frame to DataFrame */
   implicit def createDataFrame(fr: Frame) : DataFrame = new DataFrame(fr)
@@ -51,8 +51,7 @@ class H2OContext(@transient val sparkContext: SparkContext)
 
   def toDataFrame[A <: Product : TypeTag](rdd: RDD[A]) : DataFrame = H2OContext.toDataFrame(sparkContext, rdd)
 
-  def toRDD[A <: Product: TypeTag: ClassTag]( fr : DataFrame ) : RDD[A] = new H2ORDD[A](sparkContext,fr)
-
+  def toRDD[A <: Product: TypeTag: ClassTag]( fr : DataFrame ) : RDD[A] = new H2ORDD[A](this,fr)
 
   /** Execute given code as Spark job */
   def |>[T]( code: => Unit)(implicit rdd:RDD[T]): Unit = {
@@ -183,5 +182,5 @@ object H2OContext {
   }
 
   def toRDD[A <: Product: TypeTag: ClassTag]
-           ( sc : SparkContext, fr : DataFrame ) : RDD[A] = new H2ORDD[A](sc,fr)
+           ( h2oContext : H2OContext, fr : DataFrame ) : RDD[A] = new H2ORDD[A](h2oContext,fr)
 }
