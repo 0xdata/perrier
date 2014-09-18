@@ -20,7 +20,6 @@ package org.apache.spark.mllib.classification
 import hex.deeplearning.DeepLearning
 import hex.deeplearning.DeepLearningModel.DeepLearningParameters
 import org.apache.spark.h2o.H2OContext
-import org.apache.spark.h2o.H2OContext._
 import org.apache.spark.mllib.util.{LocalClusterWithH2OSparkContext, LocalH2OContext, LocalSparkContext}
 import org.scalatest.{FunSuite, Matchers}
 import water.fvec.DataFrame
@@ -125,9 +124,11 @@ class DeepLearningClusterSuite extends FunSuite with LocalClusterWithH2OSparkCon
 
     // If we serialize data directly in the task closure, the size of the serialized task would be
     // greater than 1MB and hence Spark would throw an error.
-    import org.apache.spark.h2o.H2OContext._
+
+    val h2oContext = new H2OContext(sc)
+    import h2oContext._
     // Create H2O data frame
-    val trainH2ORDD = toDataFrame(sc, trainRDD)
+    val trainH2ORDD:DataFrame = trainRDD
     // Launch Deep Learning:
     // - configure parameters
     val dlParams = new DeepLearningParameters()
@@ -140,6 +141,6 @@ class DeepLearningClusterSuite extends FunSuite with LocalClusterWithH2OSparkCon
     val dl = new DeepLearning(dlParams)
     val dlModel = dl.train().get()
 
-    val predictions = toRDD[DoubleHolder](sc, new DataFrame(dlModel.score(trainH2ORDD))('predict))
+    val predictions = toRDD[DoubleHolder](new DataFrame(dlModel.score(trainH2ORDD))('predict))
   }
 }
