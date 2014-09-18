@@ -9,9 +9,16 @@ export MASTER="spark://$SPARK_MASTER_IP:$SPARK_MASTER_PORT"
 rm -rf ../work/*
 rm -rf ../logs/*
 
+
+
+echo "Starting master..."
 ./start-master.sh 
-./start-slave.sh 1 $MASTER
-./start-slave.sh 2 $MASTER
+
+NUM_WORKERS=${1:-2}
+echo "Starting $NUM_WORKERS workers..."
+for N in $(seq 1 $NUM_WORKERS); do
+  ./start-slave.sh $N $MASTER
+done
 
 # launch spark shell
 #../bin/spark-shell
