@@ -21,4 +21,6 @@ echo "  Using master : $EXAMPLE_MASTER"
 echo "  Deploy mode  : $EXAMPLE_DEPLOY_MODE"
 echo "---------"
 export SPARK_PRINT_LAUNCH_COMMAND=1
-( cd ../; bin/spark-submit --verbose --driver-memory 3G --driver-java-options "-Dspark.h2o.workers=$EXAMPLE_NUM_OF_H2O_WORKERS" --master $EXAMPLE_MASTER --deploy-mode $EXAMPLE_DEPLOY_MODE --class $EXAMPLE h2o-examples/target/shaded.jar )
+VERBOSE=--verbose
+VERBOSE=
+( cd ../; bin/spark-submit $VERBOSE --driver-memory 3G --driver-java-options "-Dspark.h2o.workers=$EXAMPLE_NUM_OF_H2O_WORKERS" --master $EXAMPLE_MASTER --deploy-mode $EXAMPLE_DEPLOY_MODE --class $EXAMPLE h2o-examples/target/shaded.jar )

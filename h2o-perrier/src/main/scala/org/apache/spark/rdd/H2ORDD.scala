@@ -76,7 +76,7 @@ class H2ORDD[A <: Product: TypeTag: ClassTag] private (@transient val h2oContext
         val data : Array[Option[Any]] =
           for( chk <- chks )
             yield if( chk.isNA0(row) ) None
-              else if (chk.vec().isEnum) Some( chk.vec().domain()(chk.at0(row).asInstanceOf[Int]))
+              else if (chk.vec().isEnum) Some( chk.vec().domain()(chk.at80(row).asInstanceOf[Int]))
               else Some(chk.at0(row))
         row += 1
         ccr.newInstance(data:_*).asInstanceOf[A]
