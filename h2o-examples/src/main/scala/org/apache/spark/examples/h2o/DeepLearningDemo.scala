@@ -32,8 +32,8 @@ object DeepLearningDemo {
     val h2oContext = new H2OContext(sc)
     import h2oContext._
     val airlinesTable : RDD[Airlines] = toRDD[Airlines](airlinesData)
-    println(s"===> Number of all flights via RDD#count call: ${airlinesTable.count()}")
-    println(s"===> Number of all flights via H2O#Frame#count: ${airlinesData.numRows()}")
+    println(s"\n===> Number of all flights via RDD#count call: ${airlinesTable.count()}\n")
+    println(s"\n===> Number of all flights via H2O#Frame#count: ${airlinesData.numRows()}\n")
 
     //
     // Filter data with help of Spark SQL
@@ -46,7 +46,7 @@ object DeepLearningDemo {
     // Select only interesting columns and flights with destination in SFO
     val query = "SELECT * FROM airlinesTable WHERE Dest LIKE 'SFO'"
     val result = sql(query) // Using a registered context and tables
-    println(s"===> Number of flights with destination in SFO: ${result.count()}")
+    println(s"\n===> Number of flights with destination in SFO: ${result.count()}\n")
 
     //
     // Run Deep Learning
@@ -54,10 +54,10 @@ object DeepLearningDemo {
 
     // Configure Deep Learning algorithm
     val dlParams = new DeepLearningParameters()
-    dlParams.source = airlinesData( 'Year, 'Month, 'DayofMonth, 'DayOfWeek, 'CRSDepTime, 'CRSArrTime,
+    dlParams._training_frame = airlinesData( 'Year, 'Month, 'DayofMonth, 'DayOfWeek, 'CRSDepTime, 'CRSArrTime,
                                     'UniqueCarrier, 'FlightNum, 'TailNum, 'CRSElapsedTime, 'Origin, 'Dest,
                                     'Distance, 'IsDepDelayed)
-    dlParams.response_vec = airlinesData('IsDepDelayed).vec(0)
+    dlParams.response_column = 'IsDepDelayed.name
     dlParams.classification = true
 
     val dl = new DeepLearning(dlParams)
@@ -67,8 +67,8 @@ object DeepLearningDemo {
     // Use model for scoring
     //
     val predictionH2OFrame = dlModel.score(airlinesData)('predict)
-    val predictionsFromModel = toRDD[DoubleHolder](predictionH2OFrame).take(10).map ( _.predict.getOrElse("NaN") )
-    println(predictionsFromModel.mkString("===> Model predictions: ", ", ", ", ..."))
+    val predictionsFromModel = toRDD[Result](predictionH2OFrame).take(10).map ( _.predict.getOrElse("NaN") )
+    println(predictionsFromModel.mkString("\n===> Model predictions: ", ", ", ", ...\n"))
 
     // Stop Spark cluster and destroy all executors
     sc.stop()
@@ -88,7 +88,7 @@ object DeepLearningDemo {
     // For local development always wait for cloud of size 1
     conf.set("spark.h2o.cluster.size", if (conf.get("spark.master").startsWith("local")) "1" else h2oWorkers)
     //
-    // Setup H2O extension of Spark platform
+    // Setup H2O extension of Spark platform proposed by SPARK JIRA-3270
     //
     conf.addExtension[H2OPlatformExtension] // add H2O extension
 
@@ -97,7 +97,8 @@ object DeepLearningDemo {
     // In non-local case we create a small h2o instance in driver to have access to the c,oud
     //
     if (!sc.isLocal) {
-      H2OApp.main(new Array[String](0))
+      println("Waiting for " + h2oWorkers)
+      H2OApp.main(Array("-client"))
       H2O.waitForCloudSize( h2oWorkers.toInt /* One H2ONode to match the one Spark worker and one is running in driver*/
                             , 10000)
     } else {
@@ -107,5 +108,5 @@ object DeepLearningDemo {
     sc
   }
 
-  case class DoubleHolder(predict: Option[Double])
+  case class Result(predict: Option[Double])
 }

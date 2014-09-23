@@ -80,8 +80,8 @@ class DeepLearningSuite extends FunSuite with LocalSparkContext with LocalH2OCon
     // - configure parameters
     val dlParams = new DeepLearningParameters()
 
-    dlParams.source = trainRDD // Note: train to avoid double implicit transformation to H2O form
-    dlParams.response_vec = dlParams.source.lastVec()
+    dlParams._training_frame = trainRDD // Note: train to avoid double implicit transformation to H2O form
+    dlParams.response_column = "C2"
     dlParams.classification = true
 
     // - create a model builder
@@ -133,8 +133,8 @@ class DeepLearningClusterSuite extends FunSuite with LocalClusterWithH2OSparkCon
     // - configure parameters
     val dlParams = new DeepLearningParameters()
 
-    dlParams.source = trainH2ORDD
-    dlParams.response_vec = trainH2ORDD.lastVec()
+    dlParams._training_frame = trainH2ORDD
+    dlParams.response_column = "C"+trainH2ORDD.numCols()
     dlParams.classification = true
 
     // - create a model builder

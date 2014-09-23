@@ -44,8 +44,16 @@ class H2OContext(@transient val sparkContext: SparkContext)
   /** Implicit conversion from typed RDD to H2O's DataFrame */
   implicit def createDataFrame[A <: Product : TypeTag](rdd : RDD[A]) : DataFrame = toDataFrame(rdd)
 
+  /** Implicit conversion from SchemaRDD to H2O's DataFrame */
+  implicit def createDataFrameKey(rdd : SchemaRDD) : Key = toDataFrame(rdd)._key
+
+  /** Implicit conversion from typed RDD to H2O's DataFrame */
+  implicit def createDataFrameKey[A <: Product : TypeTag](rdd : RDD[A]) : Key = toDataFrame(rdd)._key
+
   /** Implicit conversion from Frame to DataFrame */
   implicit def createDataFrame(fr: Frame) : DataFrame = new DataFrame(fr)
+
+  implicit def dataFrameToKey(fr: Frame): Key = fr._key
 
   def toDataFrame(rdd: SchemaRDD) : DataFrame = H2OContext.toDataFrame(sparkContext, rdd)
 
