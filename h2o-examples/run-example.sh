@@ -19,6 +19,7 @@ echo "---------"
 echo "  Using example: $EXAMPLE"
 echo "  Using master : $EXAMPLE_MASTER"
 echo "  Deploy mode  : $EXAMPLE_DEPLOY_MODE"
+echo "  Exp. workers : $EXAMPLE_NUM_OF_H2O_WORKERS"
 echo "---------"
 export SPARK_PRINT_LAUNCH_COMMAND=1
 VERBOSE=--verbose

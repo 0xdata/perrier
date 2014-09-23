@@ -48,7 +48,8 @@ class H2OContext(@transient val sparkContext: SparkContext)
   implicit def createDataFrameKey(rdd : SchemaRDD) : Key = toDataFrame(rdd)._key
 
   /** Implicit conversion from typed RDD to H2O's DataFrame */
-  implicit def createDataFrameKey[A <: Product : TypeTag](rdd : RDD[A]) : Key = toDataFrame(rdd)._key
+  implicit def createDataFrameKey[A <: Product : TypeTag](rdd : RDD[A]) : Key
+                                  = toDataFrame(rdd)._key
 
   /** Implicit conversion from Frame to DataFrame */
   implicit def createDataFrame(fr: Frame) : DataFrame = new DataFrame(fr)
@@ -57,14 +58,10 @@ class H2OContext(@transient val sparkContext: SparkContext)
 
   def toDataFrame(rdd: SchemaRDD) : DataFrame = H2OContext.toDataFrame(sparkContext, rdd)
 
-  def toDataFrame[A <: Product : TypeTag](rdd: RDD[A]) : DataFrame = H2OContext.toDataFrame(sparkContext, rdd)
+  def toDataFrame[A <: Product : TypeTag](rdd: RDD[A]) : DataFrame
+                                  = H2OContext.toDataFrame(sparkContext, rdd)
 
   def toRDD[A <: Product: TypeTag: ClassTag]( fr : DataFrame ) : RDD[A] = new H2ORDD[A](this,fr)
-
-  /** Execute given code as Spark job */
-  def |>[T]( code: => Unit)(implicit rdd:RDD[T]): Unit = {
-    code
-  }
 }
 
 object H2OContext {
@@ -73,39 +70,30 @@ object H2OContext {
     val names = rdd.schema.fieldNames.toArray
     val types = rdd.schema.fields.map( field => dataTypeToClass(field.dataType) ).toArray
 
-    // Make an H2O data Frame - but with no backing data (yet) - it has to be run in target environment
     val keyName = Key.rand // FIXME put there a name based on RDD
     // FIXME: expects number of partitions > 0
-    // FIXME: here we are simulating RPC call, better would be contact H2O node directly via backend
-    // - in this case we have to wait since the backend is ready and then ask for location of executor
-    println("Before preparing frame referenced by ket " + keyName)
-    sc.runJob(rdd,
-      initFrame(keyName, names) _ ,
-      Seq(0), // Invoke code only on node with 1st partition
-      false) // Do not allow for running in driver locally
+    // - in this case we have to wait since the backend is ready
+    // and then ask for location of executor
+    initFrame(keyName, names)
 
     val rows = sc.runJob(rdd, perSQLPartition(keyName, types) _) // eager, not lazy, evaluation
     val res = new Array[Long](rdd.partitions.size)
     rows.foreach{ case(cidx,nrows) => res(cidx) = nrows }
 
     // Add Vec headers per-Chunk, and finalize the H2O Frame
-    sc.runJob(rdd,
-      finalizeFrame(keyName, res) _,
-      Seq(0),
-      false
-    )
-    null
+    new DataFrame(finalizeFrame(keyName, res))
   }
 
-  private def initFrame[T](keyName: String, names: Array[String])(it:Iterator[T]):Unit = {
+  private def initFrame[T](keyName: String, names: Array[String]):Unit = {
     val fr = new water.fvec.Frame(keyName)
     fr.preparePartialFrame(names)
     // Save it directly to DKV
     fr.update(null)
   }
-  private def finalizeFrame[T](keyName: String, res: Array[Long])(it:Iterator[T]):Unit = {
+  private def finalizeFrame[T](keyName: String, res: Array[Long]):Frame = {
     val fr:Frame = DKV.get(keyName).get.asInstanceOf[Frame]
     fr.finalizePartialFrame(res)
+    fr
   }
 
   def toDataFrame[A <: Product : TypeTag](sc: SparkContext, rdd: RDD[A]) : DataFrame = {
@@ -114,23 +102,14 @@ object H2OContext {
 
     // Make an H2O data Frame - but with no backing data (yet)
     val keyName = Key.rand
-    sc.runJob(rdd,
-      initFrame(keyName, names) _ ,
-      Seq(0), // Invoke code only on node with 1st partition
-      false) // Do not allow for running in driver locally
+    initFrame(keyName, names)
 
     val rows = sc.runJob(rdd, perRDDPartition(keyName) _) // eager, not lazy, evaluation
     val res = new Array[Long](rdd.partitions.size)
     rows.foreach{ case(cidx,nrows) => res(cidx) = nrows }
 
     // Add Vec headers per-Chunk, and finalize the H2O Frame
-    // Add Vec headers per-Chunk, and finalize the H2O Frame
-    sc.runJob(rdd,
-      finalizeFrame(keyName, res) _,
-      Seq(0),
-      false
-    )
-    null
+    new DataFrame(finalizeFrame(keyName, res))
   }
 
   private def dataTypeToClass(dt : DataType):Class[_] = dt match {

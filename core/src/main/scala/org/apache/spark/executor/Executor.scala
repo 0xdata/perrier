@@ -167,16 +167,16 @@ private[spark] class Executor(
   }
 
   private def createExtensions(conf: SparkConf, cl: ClassLoader):Seq[PlatformExtension] = {
-    println("YYY: " + conf.toDebugString)
     // Prefetch spark jars
     val jars = conf.getOption("spark.jars")
     val jmap = new mutable.HashMap[String, Long]()
     if (jars.isDefined && !jars.get.isEmpty) {
       jars.get.split(',').foreach( j => jmap.put(j, 1L))
     }
+    // Fetch jars from master
     updateDependencies(new mutable.HashMap[String,Long](), jmap)
-    println ("After dependency update!")
 
+    // Now instantiate extension, but only those which are intercepting Executor lifecycle
     val opt = conf.getOption("spark.extensions")
     if (opt.isDefined && !opt.get.isEmpty) {
       opt.get.split(',').map(extName => {

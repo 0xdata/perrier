@@ -53,7 +53,8 @@ class H2ORDD[A <: Product: TypeTag: ClassTag] private (@transient val h2oContext
   @transient val ccr = cs.collectFirst(
         { case c if (c.getParameterTypes.length==colNames.length) => c })
         .getOrElse( {
-                      throw new IllegalArgumentException(s"Constructor must take exactly ${colNames.length} args")})
+                      throw new IllegalArgumentException(
+                        s"Constructor must take exactly ${colNames.length} args")})
 
   /**
    * :: DeveloperApi ::
@@ -65,8 +66,14 @@ class H2ORDD[A <: Product: TypeTag: ClassTag] private (@transient val h2oContext
 
       val jc = implicitly[ClassTag[A]].runtimeClass
       val cs = jc.getConstructors
-      val ccr = cs.collectFirst({ case c if (c.getParameterTypes.length==colNames.length) => c })
-        .getOrElse( { throw new IllegalArgumentException(s"Constructor must take exactly ${colNames.length} args")})
+      val ccr = cs.collectFirst(
+              {
+                case c if (c.getParameterTypes.length==colNames.length) => c
+              })
+        .getOrElse(
+              { throw new IllegalArgumentException(
+                  s"Constructor must take exactly ${colNames.length} args")}
+      )
 
       val chks = fr.getChunks(split.index)
       val nrows = chks(0).len
