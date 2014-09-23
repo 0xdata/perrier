@@ -18,9 +18,9 @@
 package org.apache.spark.examples.h2o
 
 import java.io.File
-import java.util.Properties
 
-import hex.schemas.KMeansV2
+import hex.kmeans.KMeans
+import hex.kmeans.KMeansModel.KMeansParameters
 import org.apache.spark.h2o.H2OContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SQLContext
@@ -62,11 +62,11 @@ object ProstateDemo {
     val frameFromQuery = H2OContext.toDataFrame(sc,result)
 
     // Build a KMeansV2 model, setting model parameters via a Properties
-    val props = new Properties
-    for ((k,v) <- Seq("K"->"3")) props.setProperty(k,v)
-    val job = new KMeansV2().fillFromParms(props).createImpl(frameFromQuery)
+    val parms = new KMeansParameters()
+    parms._training_frame = frameFromQuery._key
+    parms._K = 3
+    val job = new KMeans(parms)
     val kmm = job.train().get()
-    job.remove()
     // Print the JSON model
     println(new String(kmm._output.writeJSON(new AutoBuffer()).buf()))
 

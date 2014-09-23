@@ -64,7 +64,7 @@ class H2ORDD[A <: Product: TypeTag: ClassTag] private (@transient sc: SparkConte
    */
   override def compute(split: Partition, context: TaskContext): Iterator[A] = {
     new Iterator[A] {
-      val fr : DataFrame = DKV.get(Key.make(keyName)).get.asInstanceOf[DataFrame]
+      val fr : water.fvec.Frame = DKV.get(Key.make(keyName)).get.asInstanceOf[water.fvec.Frame]
 
       val jc = implicitly[ClassTag[A]].runtimeClass
       val cs = jc.getConstructors

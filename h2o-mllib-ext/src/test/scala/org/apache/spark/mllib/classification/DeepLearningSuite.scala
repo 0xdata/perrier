@@ -80,8 +80,8 @@ class DeepLearningSuite extends FunSuite with LocalSparkContext with LocalH2OCon
     // - configure parameters
     val dlParams = new DeepLearningParameters()
 
-    dlParams.source = trainH2ORDD
-    dlParams.response = trainH2ORDD.lastVec()
+    dlParams._training_frame = trainH2ORDD._key
+    dlParams.response_column = trainH2ORDD.lastVecName()
     dlParams.classification = true
 
     // - create a model builder
@@ -94,7 +94,8 @@ class DeepLearningSuite extends FunSuite with LocalSparkContext with LocalH2OCon
     val validationRDD = sc.parallelize(validationData, 2)
     val validationH2ORDD = toDataFrame(sc, validationRDD)
     // Score validation data
-    val predictionH2OFrame = new DataFrame(dlModel.score(validationH2ORDD))('predict) // Missing implicit conversion
+    val h2ofr = dlModel.score(validationH2ORDD)
+    val predictionH2OFrame = new DataFrame(h2ofr)('predict) // Missing implicit conversion
     val predictionRDD = toRDD[DoubleHolder](sc, predictionH2OFrame)
     // Validate prediction
     validatePrediction( predictionRDD.collect().map (_.predict.getOrElse(Double.NaN)), validationData)
