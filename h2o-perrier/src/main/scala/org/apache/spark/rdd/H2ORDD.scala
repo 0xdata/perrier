@@ -21,7 +21,8 @@ package org.apache.spark.rdd
 import org.apache.spark.h2o.{H2OContext, ReflectionUtils}
 import org.apache.spark.sql.SchemaRDD
 import org.apache.spark.{Partition, SparkContext, TaskContext}
-import water.fvec.DataFrame
+import water.fvec.{Frame, DataFrame}
+import water.parser.ValueString
 import water.{DKV, Key}
 
 import scala.reflect.ClassTag
@@ -48,6 +49,7 @@ class H2ORDD[A <: Product: TypeTag: ClassTag] private (@transient val h2oContext
         " but DataFrame does not have a matching column; has " + fr._names.mkString(","))
     }
   }
+  val types = ReflectionUtils.types[A](colNames)
   @transient val jc = implicitly[ClassTag[A]].runtimeClass
   @transient val cs = jc.getConstructors
   @transient val ccr = cs.collectFirst(
@@ -62,29 +64,48 @@ class H2ORDD[A <: Product: TypeTag: ClassTag] private (@transient val h2oContext
    */
   override def compute(split: Partition, context: TaskContext): Iterator[A] = {
     new Iterator[A] {
-      val fr : DataFrame = DKV.get(Key.make(keyName)).get.asInstanceOf[DataFrame]
+      val fr : Frame = DKV.get(Key.make(keyName)).get.asInstanceOf[Frame]
 
       val jc = implicitly[ClassTag[A]].runtimeClass
       val cs = jc.getConstructors
-      val ccr = cs.collectFirst(
-              {
+      val ccr = cs.collectFirst({
                 case c if (c.getParameterTypes.length==colNames.length) => c
               })
-        .getOrElse(
-              { throw new IllegalArgumentException(
-                  s"Constructor must take exactly ${colNames.length} args")}
-      )
+        .getOrElse({
+            throw new IllegalArgumentException(
+                  s"Constructor must take exactly ${colNames.length} args")
+      })
 
       val chks = fr.getChunks(split.index)
       val nrows = chks(0).len
       var row : Int = 0
+      val valStr = new ValueString() // dummy holder
       def hasNext: Boolean = row < nrows
       def next(): A = {
-        val data : Array[Option[Any]] =
-          for( chk <- chks )
-            yield if( chk.isNA0(row) ) None
-              else if (chk.vec().isEnum) Some( chk.vec().domain()(chk.at80(row).asInstanceOf[Int]))
-              else Some(chk.at0(row))
+        val data = new Array[Option[Any]](chks.length)
+          for (
+            idx <- 0 until chks.length;
+            chk = chks (idx);
+            typ = types(idx)
+          ) {
+            val value = if (chk.isNA0(row)) None
+            else typ match {
+              case q if q == classOf[Integer]           => Some(chk.at80(row).asInstanceOf[Int])
+              case q if q == classOf[java.lang.Long]    => Some(chk.at80(row))
+              case q if q == classOf[java.lang.Double]  => Some(chk.at0 (row))
+              case q if q == classOf[java.lang.Float]   => Some(chk.at0 (row))
+              case q if q == classOf[java.lang.Boolean] => Some(chk.at80(row) == 1)
+              case q if q == classOf[String] =>
+                if (chk.vec().isEnum)
+                  Some(chk.vec().domain()(chk.at80(row).asInstanceOf[Int]))
+                else if (chk.vec().isString) {
+                  chk.atStr0(valStr, row)
+                  Some(valStr.toString)
+                } else None
+              case _ => None
+            }
+            data(idx) = value
+          }
         row += 1
         ccr.newInstance(data:_*).asInstanceOf[A]
       }

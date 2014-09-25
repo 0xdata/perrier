@@ -17,13 +17,17 @@
 
 package org.apache.spark.h2o
 
+import java.util
+
 import org.apache.spark.rdd.{H2ORDD, RDD}
 import org.apache.spark.sql.catalyst.types._
 import org.apache.spark.sql.{Row, SchemaRDD}
-import org.apache.spark.{SparkContext, TaskContext}
+import org.apache.spark.{Accumulable, SparkContext, TaskContext}
 import water.fvec.{DataFrame, Frame}
+import water.parser.ValueString
 import water.{DKV, Key}
 
+import scala.collection.mutable
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
@@ -32,6 +36,8 @@ import scala.reflect.runtime.universe._
  * Simple H2O context motivated by SQLContext.
  *
  * Doing - implicit conversion from RDD -> H2OLikeRDD
+ *
+ * FIXME: unify path for RDD[A] and SchemaRDD
  */
 class H2OContext(@transient val sparkContext: SparkContext)
   extends org.apache.spark.Logging
@@ -66,22 +72,24 @@ class H2OContext(@transient val sparkContext: SparkContext)
 
 object H2OContext {
 
+  /** Transform SchemaRDD into H2O DataFrame */
   def toDataFrame(sc: SparkContext, rdd: SchemaRDD) : DataFrame = {
-    val names = rdd.schema.fieldNames.toArray
-    val types = rdd.schema.fields.map( field => dataTypeToClass(field.dataType) ).toArray
+    val fnames = rdd.schema.fieldNames.toArray
+    val ftypes = rdd.schema.fields.map( field => dataTypeToClass(field.dataType) ).toArray
+
+    // Collect domains for String columns
+    val fdomains = collectColumnDomains(sc, rdd, fnames, ftypes)
 
     val keyName = Key.rand // FIXME put there a name based on RDD
     // FIXME: expects number of partitions > 0
-    // - in this case we have to wait since the backend is ready
-    // and then ask for location of executor
-    initFrame(keyName, names)
+    initFrame(keyName, fnames)
 
-    val rows = sc.runJob(rdd, perSQLPartition(keyName, types) _) // eager, not lazy, evaluation
+    val rows = sc.runJob(rdd, perSQLPartition(keyName, ftypes, fdomains) _) // eager, not lazy, evaluation
     val res = new Array[Long](rdd.partitions.size)
-    rows.foreach{ case(cidx,nrows) => res(cidx) = nrows }
+    rows.foreach { case(cidx,nrows) => res(cidx) = nrows }
 
     // Add Vec headers per-Chunk, and finalize the H2O Frame
-    new DataFrame(finalizeFrame(keyName, res))
+    new DataFrame(finalizeFrame(keyName, res, ftypes, fdomains))
   }
 
   private def initFrame[T](keyName: String, names: Array[String]):Unit = {
@@ -90,26 +98,33 @@ object H2OContext {
     // Save it directly to DKV
     fr.update(null)
   }
-  private def finalizeFrame[T](keyName: String, res: Array[Long]):Frame = {
+  private def finalizeFrame[T](keyName: String,
+                               res: Array[Long],
+                               colTypes: Array[Class[_]],
+                               colDomains: Array[Array[String]]):Frame = {
     val fr:Frame = DKV.get(keyName).get.asInstanceOf[Frame]
-    fr.finalizePartialFrame(res)
+    fr.finalizePartialFrame(res, colTypes, colDomains)
     fr
   }
 
+  /** Transform typed RDD into H2O DataFrame */
   def toDataFrame[A <: Product : TypeTag](sc: SparkContext, rdd: RDD[A]) : DataFrame = {
     import org.apache.spark.h2o.ReflectionUtils._
     val fnames = names[A]
+    val ftypes = types[A]
+    // Collect domains for string columns
+    val fdomains = collectColumnDomains(sc, rdd, fnames, ftypes)
 
     // Make an H2O data Frame - but with no backing data (yet)
     val keyName = Key.rand
-    initFrame(keyName, names)
+    initFrame(keyName, fnames)
 
     val rows = sc.runJob(rdd, perRDDPartition(keyName) _) // eager, not lazy, evaluation
     val res = new Array[Long](rdd.partitions.size)
     rows.foreach{ case(cidx,nrows) => res(cidx) = nrows }
 
     // Add Vec headers per-Chunk, and finalize the H2O Frame
-    new DataFrame(finalizeFrame(keyName, res))
+    new DataFrame(finalizeFrame(keyName, res, types, fdomains))
   }
 
   private def dataTypeToClass(dt : DataType):Class[_] = dt match {
@@ -117,25 +132,42 @@ object H2OContext {
     case IntegerType => classOf[Integer]
     case FloatType   => classOf[java.lang.Float]
     case DoubleType  => classOf[java.lang.Double]
+    case StringType  => classOf[String]
+    case BooleanType => classOf[java.lang.Boolean]
     case _ => throw new IllegalArgumentException(s"Unsupported type $dt")
   }
 
   private
-  def perSQLPartition ( keystr: String, types: Array[Class[_]] )
+  def perSQLPartition ( keystr: String, types: Array[Class[_]], domains: Array[Array[String]] )
                       ( context: TaskContext, it: Iterator[Row] ): (Int,Long) = {
     val nchks = water.fvec.Frame.createNewChunks(keystr,context.partitionId)
-    //println (nchks.length + " Types: " + types.mkString(","))
+    val domHash = domains.map( ary =>
+      if (ary==null) {
+        null.asInstanceOf[mutable.Map[String,Int]]
+      } else {
+        val m = new mutable.HashMap[String, Int]()
+        for (idx <- ary.indices) m.put(ary(idx), idx)
+        m
+      })
     it.foreach(row => {
+      val valStr = new ValueString()
       for( i <- 0 until types.length) {
-        nchks(i).addNum(
-          if (row.isNullAt(i)) Double.NaN
-          else types(i) match {
-            case q if q==classOf[Integer] => row.getInt(i)
-            case q if q==classOf[java.lang.Double]  => row.getDouble(i)
-            case q if q==classOf[java.lang.Float]   => row.getFloat(i)
-            case _ => Double.NaN
-          }
-        )
+        val nchk = nchks(i)
+        if (row.isNullAt(i)) nchk.addNA()
+        else types(i) match {
+          case q if q==classOf[Integer]           => nchk.addNum(row.getInt(i))
+          case q if q==classOf[java.lang.Double]  => nchk.addNum(row.getDouble(i))
+          case q if q==classOf[java.lang.Float]   => nchk.addNum(row.getFloat(i))
+          case q if q==classOf[java.lang.Boolean] => nchk.addNum(if (row.getBoolean(i)) 1 else 0)
+          case q if q==classOf[String]            =>
+            if (domains(i)==null) nchk.addStr(valStr.setTo(row.getString(i))) // too large domain - use String instead
+            else {
+              val sv = row.getString(i)
+              val smap = domHash(i)
+              nchk.addEnum(smap.getOrElse(sv, !!!))
+            }
+          case _ => Double.NaN
+        }
       }
     })
     // Compress & write out the Partition/Chunks
@@ -167,6 +199,36 @@ object H2OContext {
     // Return Partition# and rows in this Partition
     (context.partitionId,nchks(0).len)
   }
+
+  private def collectColumnDomains(sc: SparkContext,
+                                   rdd: SchemaRDD,
+                                   fnames: Array[String],
+                                   ftypes: Array[Class[_]]): Array[Array[String]] = {
+    val res = Array.ofDim[Array[String]](fnames.length)
+    for (idx <- 0 until ftypes.length if ftypes(idx).equals(classOf[String])) {
+      val acc =  sc.accumulableCollection(new mutable.HashSet[String]())
+      // Distributed ops
+      rdd.foreach( r => { acc += r.getString(idx) })
+      res(idx) = acc.value.toArray.sorted
+    }
+    res
+  }
+
+  private def collectColumnDomains[A <: Product](sc: SparkContext,
+                                   rdd: RDD[A],
+                                   fnames: Array[String],
+                                   ftypes: Array[Class[_]]): Array[Array[String]] = {
+    val res = Array.ofDim[Array[String]](fnames.length)
+    for (idx <- 0 until ftypes.length if ftypes(idx).equals(classOf[String])) {
+      val acc =  sc.accumulableCollection(new mutable.HashSet[String]())
+      // Distributed ops
+      rdd.foreach( r => { acc += r.productElement(idx).asInstanceOf[String] })
+      res(idx) = acc.value.toArray.sorted
+    }
+    res
+  }
+
+  private def !!! = throw new IllegalArgumentException
 
   def toRDD[A <: Product: TypeTag: ClassTag]
            ( h2oContext : H2OContext, fr : DataFrame ) : RDD[A] = new H2ORDD[A](h2oContext,fr)
