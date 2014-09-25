@@ -2,7 +2,9 @@ package org.apache.spark.examples.h2o
 
 import org.apache.spark.executor.H2OPlatformExtension
 import org.apache.spark.{SparkConf, SparkContext}
-import water.{H2O, H2OApp}
+import water.fvec.{DataFrame, Chunk}
+import water.parser.ValueString
+import water.{MRTask, H2O, H2OApp}
 
 /**
  * Shared demo utility functions.
@@ -40,6 +42,28 @@ private[h2o] object DemoUtils {
       H2O.waitForCloudSize(1, 1000)
     }
     sc
+  }
+
+  def printFrame(fr: DataFrame): Unit = {
+    new MRTask {
+      override def map(cs: Array[Chunk]): Unit = {
+        println ("Chunks: " + cs.mkString(","))
+        for (r <- 0 until cs(0).len()) {
+          for (c <- cs) {
+            val vstr = new ValueString
+            if (c.vec().isString) {
+              c.atStr0(vstr, r)
+              print(vstr.toString + ",")
+            } else if (c.vec().isEnum) {
+              print(c.vec().domain()(c.at80(r).asInstanceOf[Int]) + ", ")
+            } else {
+              print(c.at0(r) + ", ")
+            }
+          }
+          println()
+        }
+      }
+    }.doAll(fr)
   }
 
 
