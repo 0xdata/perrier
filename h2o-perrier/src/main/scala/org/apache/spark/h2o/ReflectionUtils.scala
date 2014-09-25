@@ -28,9 +28,33 @@ object ReflectionUtils {
     tt.map(_.name.toString.trim)
   }
 
-  def types[T: TypeTag] : Array[Class[_]] = {
-    val tt = typeOf[T].members.sorted.filter(!_.isMethod).toArray
-    tt.map( _.typeSignature match {
+  def types[T: TypeTag](filter: Array[String]) : Array[Class[_]] = types(typeOf[T], filter)
+
+  def types[T: TypeTag] : Array[Class[_]] = types(typeOf[T], new Array[String](0))
+
+  def types(st: `Type`, filter: Array[String]): Array[Class[_]] = {
+    val formalTypeArgs = st.typeSymbol.asClass.typeParams
+    val TypeRef(_, _, actualTypeArgs) = st
+    val attr = st.members.sorted
+      .filter(!_.isMethod)
+      .filter( s => filter.contains(s.name.toString.trim))
+      .map( s =>
+      s.typeSignature.substituteTypes(formalTypeArgs, actualTypeArgs)
+    )
+    types(attr)
+  }
+
+  def types(tt: Seq[`Type`]) : Array[Class[_]] = {
+    tt.map( typ(_) ).toArray
+  }
+
+  def typ(tpe: `Type`) : Class[_] = {
+    tpe match {
+      // Unroll Option[_] type
+      case t if t <:< typeOf[Option[_]] => {
+        val TypeRef(_, _, Seq(optType)) = t
+        typ(optType)
+      }
       case t if t <:< typeOf[String]            => classOf[String]
       case t if t <:< typeOf[java.lang.Integer] => classOf[java.lang.Integer]
       case t if t <:< typeOf[java.lang.Long]    => classOf[java.lang.Long]
@@ -47,6 +71,6 @@ object ReflectionUtils {
       case t if t <:< definitions.ByteTpe       => classOf[java.lang.Byte]
       case t if t <:< definitions.BooleanTpe    => classOf[java.lang.Boolean]
       case t => throw new IllegalArgumentException(s"Type $t is not supported!")
-    })
+    }
   }
 }
