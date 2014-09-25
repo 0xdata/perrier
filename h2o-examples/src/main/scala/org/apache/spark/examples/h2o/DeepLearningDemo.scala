@@ -8,7 +8,9 @@ import org.apache.spark.examples.h2o.DemoUtils.createSparkContext
 import org.apache.spark.h2o.H2OContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SQLContext
-import water.fvec.DataFrame
+import water.parser.ValueString
+import water.{DKV, MRTask}
+import water.fvec.{Chunk, DataFrame}
 
 
 object DeepLearningDemo {
@@ -20,7 +22,7 @@ object DeepLearningDemo {
     //
     // Load H2O from CSV file (i.e., access directly H2O cloud)
     // Use super-fast advanced H2O CSV parser !!!
-    val dataFile = "/Users/michal/Devel/projects/h2o/repos/NEW.h2o.github/smalldata/airlines/allyears2k_headers.zip"
+    val dataFile = "h2o-examples/smalldata/allyears2k_headers.csv.gz"
     println(s"===> Parsing datafile: $dataFile")
     val airlinesData = new DataFrame(new File(dataFile))
 
@@ -50,13 +52,22 @@ object DeepLearningDemo {
     // Run Deep Learning
     //
 
+    println("\n====> Running DeepLearning on the result of SQL query\n")
     // Configure Deep Learning algorithm
     val dlParams = new DeepLearningParameters()
-    dlParams._training_frame = airlinesData( 'Year, 'Month, 'DayofMonth, 'DayOfWeek, 'CRSDepTime, 'CRSArrTime,
+    // Use result of SQL query
+    // Note: there is implicit conversion from RDD->DataFrame->Key
+    dlParams._training_frame = result( 'Year, 'Month, 'DayofMonth, 'DayOfWeek, 'CRSDepTime, 'CRSArrTime,
                                     'UniqueCarrier, 'FlightNum, 'TailNum, 'CRSElapsedTime, 'Origin, 'Dest,
                                     'Distance, 'IsDepDelayed)
     dlParams.response_column = 'IsDepDelayed.name
     dlParams.classification = true
+
+    // ---- DEBUG
+    //println("========== ******* DEBUG ******* =========")
+    //val xxx = dlParams._training_frame
+    //DemoUtils.printFrame(xxx.get[DataFrame])
+    // ---------
 
     val dl = new DeepLearning(dlParams)
     val dlModel = dl.train.get
@@ -64,7 +75,8 @@ object DeepLearningDemo {
     //
     // Use model for scoring
     //
-    val predictionH2OFrame = dlModel.score(airlinesData)('predict)
+    println("\n====> Making prediction with help of DeepLearning model\n")
+    val predictionH2OFrame = dlModel.score(result)('predict)
     val predictionsFromModel = toRDD[Result](predictionH2OFrame).take(10).map ( _.predict.getOrElse("NaN") )
     println(predictionsFromModel.mkString("\n===> Model predictions: ", ", ", ", ...\n"))
 
