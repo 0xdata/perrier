@@ -2,16 +2,16 @@
 
 ## Available Examples
   * `ProstateDemo` - running K-means on prostate dataset (see
-    smalldata/prostate.csv)
+    _smalldata/prostate.csv_)
   * `DeepLearningDemo` - running DeepLearning on a subset of airlines dataset (see
-    smalldata/allyears2k_headers.csv.gz)
+    _smalldata/allyears2k\_headers.csv.gz_)
 
 ## Run example
 
 ### Simple local cluster
  
  Run a given example on local cluster. The cluster is defined by MASTER address
-`local-cluster[3,2,3072]` which means that cluster contains 3 worker nodes, each 
+`local-cluster[3,2,3072]` which means that cluster contains 3 worker nodes, each having 2CPUs and 3GB of memory
    * Go to `h2o-examples`
    * Run `./run-example.sh <name of demo>`
 
