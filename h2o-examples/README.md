@@ -28,4 +28,5 @@
 You can tune Sparkling Water via the following variables:
   * `spark.h2o.cloud.timeout` - number of msec to wait for cloud formation
   * `spark.h2o.workers` - number of expected H<sub>2</sub>O workers - it should be same as number of Spark workers
+  * `spark.h2o.preserve.executors` - do not kill executors via calling `sc.stop()` call
 
