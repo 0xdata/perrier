@@ -19,8 +19,6 @@ private[h2o] object DemoUtils {
     val conf = new SparkConf()
         .setAppName("H2O Integration Example")
     if (System.getProperty("spark.master")==null) conf.setMaster("local")
-    // Setup executor memory directly here
-    conf.set("spark.executor.memory", "3g")
     // For local development always wait for cloud of size 1
     conf.set("spark.h2o.cluster.size", if (conf.get("spark.master").startsWith("local")) "1" else h2oWorkers)
     //
