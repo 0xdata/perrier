@@ -5,19 +5,32 @@ export SPARK_WORKER_PORT="7087"
 export SPARK_WORKER_INSTANCES=2
 export MASTER="spark://$SPARK_MASTER_IP:$SPARK_MASTER_PORT"
 
-# cleanup
-rm -rf ../work/*
-rm -rf ../logs/*
+# Number of workers
+NUM_WORKERS=${1:-3}
+# Spark dir
+TDIR=$(cd `dirname $0` &&  pwd)
+# Configure tmp dir
+tmpdir=${TMPDIR:-"/tmp/"}
+export SPARK_LOG_DIR="${tmpdir}spark/logs"
+export SPARK_WORKER_DIR="${tmpdir}spark/work"
+export SPARK_LOCAL_DIRS="${tmpdir}spark/work"
 
+# Cleanup
+rm -rf $TDIR/work/* 2>/dev/null
+rm -rf $TDIR/logs/* 2>/dev/null
 
+cat <<EOF
+Starting Spark cluster ... 1 master + $NUM_WORKERS workers
+ * Log dir is located in $SPARK_LOG_DIR"
+ * Workers dir is located in $SPARK_WORKER_DIR"
+EOF
 
 echo "Starting master..."
-./start-master.sh 
+$TDIR/start-master.sh 
 
-NUM_WORKERS=${1:-2}
 echo "Starting $NUM_WORKERS workers..."
 for N in $(seq 1 $NUM_WORKERS); do
-  ./start-slave.sh $N $MASTER
+  $TDIR/start-slave.sh $N $MASTER
 done
 
 # launch spark shell
