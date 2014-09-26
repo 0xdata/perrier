@@ -25,12 +25,15 @@ import org.apache.spark.{Logging, SparkConf, PlatformExtension}
 class H2OPlatformExtension extends PlatformExtension with Logging {
   /** Method to start extension */
   override def start(conf: SparkConf): Unit = {
+    val h2oClusterTimeout = conf.getInt("spark.h2o.cloud.timeout",
+                              conf.getInt("spark.executorEnv.spark.h2o.cloud.timeout", 60000 /*msec*/))
+
     logDebug("Starting H2O Spark Extension...")
     water.H2O.main(new Array[String](0))
     water.H2O.finalizeRequest()
     // FIXME we can continue only if all H2O nodes are ready
     // FIXME this is hack! We should figure out cloud size
-    water.H2O.waitForCloudSize(conf.getInt("spark.h2o.cluster.size", 1), 10000)
+    water.H2O.waitForCloudSize(conf.getInt("spark.h2o.cluster.size", 1), h2oClusterTimeout)
     logDebug("H2O extension started.")
   }
 

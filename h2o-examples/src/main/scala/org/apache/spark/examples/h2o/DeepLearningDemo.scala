@@ -8,9 +8,7 @@ import org.apache.spark.examples.h2o.DemoUtils.createSparkContext
 import org.apache.spark.h2o.H2OContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SQLContext
-import water.parser.ValueString
-import water.{DKV, MRTask}
-import water.fvec.{Chunk, DataFrame}
+import water.fvec.DataFrame
 
 
 object DeepLearningDemo {
@@ -23,7 +21,7 @@ object DeepLearningDemo {
     // Load H2O from CSV file (i.e., access directly H2O cloud)
     // Use super-fast advanced H2O CSV parser !!!
     val dataFile = "h2o-examples/smalldata/allyears2k_headers.csv.gz"
-    println(s"===> Parsing datafile: $dataFile")
+    println(s"\n===> Parsing datafile: $dataFile\n")
     val airlinesData = new DataFrame(new File(dataFile))
 
     //
@@ -81,7 +79,9 @@ object DeepLearningDemo {
     println(predictionsFromModel.mkString("\n===> Model predictions: ", ", ", ", ...\n"))
 
     // Stop Spark cluster and destroy all executors
-    sc.stop()
+    if (System.getProperty("spark.h2o.preserve.executors")==null) {
+      sc.stop()
+    }
     // This will block in cluster mode since we have H2O launched in driver
   }
 

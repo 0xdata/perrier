@@ -13,6 +13,7 @@ private[h2o] object DemoUtils {
 
   def createSparkContext(sparkMaster:String = null): SparkContext = {
     val h2oWorkers = System.getProperty("spark.h2o.workers", "3") // N+1 workers, one is running in driver
+    val h2oCloudTimeout = System.getProperty("spark.h2o.cloud.timeout", "60000").toInt
     //
     // Create application configuration
     //
@@ -34,10 +35,10 @@ private[h2o] object DemoUtils {
       println("Waiting for " + h2oWorkers)
       H2OApp.main(Array("-client"))
       H2O.waitForCloudSize( h2oWorkers.toInt /* One H2ONode to match the one Spark worker and one is running in driver*/
-        , 10000)
+        , h2oCloudTimeout)
     } else {
       // Since LocalBackend does not wait for initialization (yet)
-      H2O.waitForCloudSize(1, 1000)
+      H2O.waitForCloudSize(1, h2oCloudTimeout)
     }
     sc
   }
