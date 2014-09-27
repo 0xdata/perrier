@@ -19,7 +19,6 @@ package org.apache.spark.mllib.classification
 
 import hex.deeplearning.DeepLearning
 import hex.deeplearning.DeepLearningModel.DeepLearningParameters
-import org.apache.spark.h2o.H2OContext
 import org.apache.spark.mllib.util.{LocalH2OContext, LocalSparkContext}
 import org.scalatest.{FunSuite, Matchers}
 import water.fvec.DataFrame
