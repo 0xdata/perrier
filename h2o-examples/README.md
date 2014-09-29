@@ -5,8 +5,18 @@
     _smalldata/prostate.csv_)
   * `DeepLearningDemo` - running DeepLearning on a subset of airlines dataset (see
     _smalldata/allyears2k\_headers.csv.gz_)
+  * Sparkling shell
+
+## Compile Example
+To compile the package, run `make-package.sh`
+
 
 ## Run Example
+
+### Sparkling shell
+  * Simple setup `MASTER` variable to point to your claster (e.g., `local`,
+    `local-cluster[3,2,1024]`, or `spark://localhost:7077`)
+  * Execute `sparkling-shell` script 
 
 ### Simple Local Cluster
  
