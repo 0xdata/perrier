@@ -4,7 +4,7 @@ import org.apache.spark.executor.H2OPlatformExtension
 import org.apache.spark.{SparkConf, SparkContext}
 import water.fvec.{DataFrame, Chunk}
 import water.parser.ValueString
-import water.{MRTask, H2O, H2OApp}
+import water.{H2OClientApp, MRTask, H2O, H2OApp}
 
 /**
  * Shared demo utility functions.
@@ -33,7 +33,7 @@ private[h2o] object DemoUtils {
     //
     if (!sc.isLocal) {
       println("Waiting for " + h2oWorkers)
-      H2OApp.main(Array("-client"))
+      H2OClientApp.start()
       H2O.waitForCloudSize( h2oWorkers.toInt /* One H2ONode to match the one Spark worker and one is running in driver*/
         , h2oCloudTimeout)
     } else {
