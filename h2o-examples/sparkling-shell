@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+TOPDIR=$(cd `dirname $0`/..; pwd)
+SHELL_DRIVER_MEMORY=3G
+
+$TOPDIR/bin/spark-shell --jars $TOPDIR/h2o-examples/target/shaded.jar --conf spark.extensions=org.apache.spark.executor.H2OPlatformExtension --driver-memory $SHELL_DRIVER_MEMORY
+
