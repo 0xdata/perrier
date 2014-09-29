@@ -50,7 +50,7 @@ function main(){
         stty icanon echo > /dev/null 2>&1
     else
         export SPARK_SUBMIT_OPTS
-        $FWDIR/bin/spark-submit --class org.apache.spark.repl.Main spark-shell "$@"
+        $FWDIR/bin/spark-submit "$@" --class org.apache.spark.repl.Main spark-shell
     fi
 }
 
