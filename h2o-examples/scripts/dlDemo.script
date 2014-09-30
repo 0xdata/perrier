@@ -15,14 +15,14 @@ import h2oContext._
 val airlinesTable : RDD[Airlines] = toRDD[Airlines](airlinesData)
 airlinesTable.count
 
-val flightsOnlyToSFO = airlinesTable.filter( _.Dest.equals(Some("SFO")) )
+val flightsOnlyToSFO = airlinesTable.filter( f => f.Dest == Some("SFO") || f.Dest==Some("SJC") || f.Dest==Some("OAK") )
 flightsOnlyToSFO.count
 
 import org.apache.spark.sql.SQLContext
 val sqlContext = new SQLContext(sc)
 import sqlContext._ // import implicit conversions
 airlinesTable.registerTempTable("airlinesTable")
-val query = "SELECT * FROM airlinesTable WHERE Dest LIKE 'SFO'"
+val query = "SELECT * FROM airlinesTable WHERE Dest LIKE 'SFO' OR Dest LIKE 'SJC' OR Dest LIKE 'OAK' "
 val result = sql(query) // Using a registered context and tables
 result.count
 
@@ -38,4 +38,6 @@ val dl = new DeepLearning(dlParams)
 val dlModel = dl.train.get
 
 val predictionH2OFrame = dlModel.score(result)('predict)
+val predictionsFromModel = toRDD[DoubleHolder](predictionH2OFrame).map ( _.result.getOrElse("NaN") ).collect
 
+ 
