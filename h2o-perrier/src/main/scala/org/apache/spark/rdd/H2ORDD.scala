@@ -43,10 +43,12 @@ class H2ORDD[A <: Product: TypeTag: ClassTag] private (@transient val h2oContext
   // Cache a way to get DataFrame from the K/V
   val keyName = fr._key.toString
   // Check that DataFrame & given Scala type are compatible
-  colNames.foreach { name =>
-    if (fr.find(name) == -1) {
-      throw new IllegalArgumentException("Scala type has field " + name +
-        " but DataFrame does not have a matching column; has " + fr._names.mkString(","))
+  if (colNames.length > 1) {
+    colNames.foreach { name =>
+      if (fr.find(name) == -1) {
+        throw new IllegalArgumentException("Scala type has field " + name +
+          " but DataFrame does not have a matching column; has " + fr._names.mkString(","))
+      }
     }
   }
   val types = ReflectionUtils.types[A](colNames)
