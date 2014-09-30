@@ -301,12 +301,16 @@ class SparkConf(loadDefaults: Boolean) extends Cloneable with Logging {
     }
   }
 
-  // Add a list of extensions
+  /* Register a new platform extension */
   def addExtension[T <: PlatformExtension : ClassTag]: SparkConf = {
     val name = implicitly[ClassTag[T]].runtimeClass.getCanonicalName
+    addExtension(name)
+  }
+  /* Register a new platform extension */
+  def addExtension(fullName : String): SparkConf = {
     val exts = settings.get("spark.extensions") match {
-      case Some(v) => s"${v},${name}"
-      case None    => name
+      case Some(v) => s"${v},${fullName}"
+      case None    => fullName
     }
     settings.update("spark.extensions", exts)
     this
