@@ -79,7 +79,7 @@ object DeepLearningDemo {
     println(predictionsFromModel.mkString("\n===> Model predictions: ", ", ", ", ...\n"))
 
     // Stop Spark cluster and destroy all executors
-    if (System.getProperty("spark.h2o.preserve.executors")==null) {
+    if (System.getProperty("spark.ext.h2o.preserve.executors")==null) {
       sc.stop()
     }
     // This will block in cluster mode since we have H2O launched in driver

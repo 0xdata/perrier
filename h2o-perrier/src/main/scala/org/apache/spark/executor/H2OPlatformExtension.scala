@@ -40,7 +40,7 @@ class H2OPlatformExtension extends PlatformExtension with Logging {
     water.H2O.finalizeRequest()
     // FIXME we can continue only if all H2O nodes are ready
     // FIXME this is hack! We should figure out cloud size
-    water.H2O.waitForCloudSize(conf.getInt("spark.h2o.cluster.size", 1), h2oClusterTimeout)
+    water.H2O.waitForCloudSize(conf.getInt("spark.ext.h2o.cluster.size", 1), h2oClusterTimeout)
     logDebug("H2O extension started.")
     extstate = STARTED
   }

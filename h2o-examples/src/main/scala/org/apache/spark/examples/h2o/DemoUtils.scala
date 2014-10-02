@@ -13,7 +13,7 @@ private[h2o] object DemoUtils {
 
   def createSparkContext(sparkMaster:String = null): SparkContext = {
     val h2oWorkers = System.getProperty("spark.h2o.workers", "3") // N+1 workers, one is running in driver
-    val h2oCloudTimeout = System.getProperty("spark.h2o.cloud.timeout", "60000").toInt
+    val h2oCloudTimeout = System.getProperty("spark.ext.h2o.cloud.timeout", "60000").toInt
     //
     // Create application configuration
     //
@@ -21,7 +21,7 @@ private[h2o] object DemoUtils {
         .setAppName("H2O Integration Example")
     if (System.getProperty("spark.master")==null) conf.setMaster("local")
     // For local development always wait for cloud of size 1
-    conf.set("spark.h2o.cluster.size", if (conf.get("spark.master").startsWith("local")) "1" else h2oWorkers)
+    conf.set("spark.ext.h2o.cluster.size", if (conf.get("spark.master").startsWith("local")) "1" else h2oWorkers)
     //
     // Setup H2O extension of Spark platform proposed by SPARK JIRA-3270
     //
