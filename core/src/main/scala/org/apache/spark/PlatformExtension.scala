@@ -17,6 +17,7 @@
 
 package org.apache.spark
 
+import org.apache.spark.ExtensionState.ExtensionState
 import org.apache.spark.InterceptionPoints.InterceptionPoints
 
 
@@ -27,6 +28,9 @@ trait PlatformExtension extends Serializable {
   def start(conf: SparkConf):Unit
   /** Method to stop extension */
   def stop (conf: SparkConf):Unit
+
+  /** Method to query actual state of extension */
+  def state : ExtensionState = ExtensionState.STOPPED
 
   /* Point in Spark infrastructure which will be intercepted by this extension. */
   def intercept: InterceptionPoints = InterceptionPoints.EXECUTOR_LC
@@ -44,4 +48,10 @@ object InterceptionPoints extends Enumeration {
   type InterceptionPoints = Value
   val EXECUTOR_LC /* Inject into executor lifecycle */
       = Value
+}
+/** Possible state of extension.
+  */
+object ExtensionState extends Enumeration {
+  type ExtensionState = Value
+  val STOPPED, STARTED, STARTING, STOPPING = Value
 }
