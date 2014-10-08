@@ -98,9 +98,9 @@ class H2ORDD[A <: Product: TypeTag: ClassTag] private (@transient val h2oContext
               case q if q == classOf[java.lang.Float]   => Some(chk.at0 (row))
               case q if q == classOf[java.lang.Boolean] => Some(chk.at80(row) == 1)
               case q if q == classOf[String] =>
-                if (chk.vec().isEnum)
+                if (chk.vec().isEnum) {
                   Some(chk.vec().domain()(chk.at80(row).asInstanceOf[Int]))
-                else if (chk.vec().isString) {
+                } else if (chk.vec().isString) {
                   chk.atStr0(valStr, row)
                   Some(valStr.toString)
                 } else None

@@ -17,13 +17,10 @@
 
 package org.apache.spark.h2o
 
-import java.util
-
-import org.apache.spark.rdd.{H2ORDD, RDD}
+import org.apache.spark.rdd.H2ORDD
 import org.apache.spark.sql.catalyst.types._
 import org.apache.spark.sql.{Row, SchemaRDD}
-import org.apache.spark.{Accumulable, SparkContext, TaskContext}
-import water.fvec.{DataFrame, Frame}
+import org.apache.spark.{SparkContext, TaskContext}
 import water.parser.ValueString
 import water.{DKV, Key}
 
@@ -84,7 +81,8 @@ object H2OContext {
     // FIXME: expects number of partitions > 0
     initFrame(keyName, fnames)
 
-    val rows = sc.runJob(rdd, perSQLPartition(keyName, ftypes, fdomains) _) // eager, not lazy, evaluation
+    // Eager, not lazy, evaluation
+    val rows = sc.runJob(rdd, perSQLPartition(keyName, ftypes, fdomains) _)
     val res = new Array[Long](rdd.partitions.size)
     rows.foreach { case(cidx,nrows) => res(cidx) = nrows }
 
@@ -160,7 +158,8 @@ object H2OContext {
           case q if q==classOf[java.lang.Float]   => nchk.addNum(row.getFloat(i))
           case q if q==classOf[java.lang.Boolean] => nchk.addNum(if (row.getBoolean(i)) 1 else 0)
           case q if q==classOf[String]            =>
-            if (domains(i)==null) nchk.addStr(valStr.setTo(row.getString(i))) // too large domain - use String instead
+            // too large domain - use String instead
+            if (domains(i)==null) nchk.addStr(valStr.setTo(row.getString(i)))
             else {
               val sv = row.getString(i)
               val smap = domHash(i)

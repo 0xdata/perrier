@@ -33,7 +33,8 @@ class H2OPlatformExtension extends PlatformExtension with Logging {
   override def start(conf: SparkConf): Unit = {
     extstate = STARTING
     val h2oClusterTimeout = conf.getInt("spark.ext.h2o.cloud.timeout",
-                              conf.getInt("spark.executorEnv.spark.ext.h2o.cloud.timeout", 60000 /*msec*/))
+                              conf.getInt("spark.executorEnv.spark.ext.h2o.cloud.timeout",
+                                            60000 /*msec*/))
 
     logDebug("Starting H2O Spark Extension...")
     water.H2O.main(new Array[String](0))
