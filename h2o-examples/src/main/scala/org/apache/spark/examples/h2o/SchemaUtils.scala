@@ -21,12 +21,18 @@ package org.apache.spark.examples.h2o
 object SchemaUtils {
 
   def int  (s:String):Option[Int]     = if (isValid(s)) parseInt(s)   else None
+  def long (s:String):Option[Long]    = if (isValid(s)) parseLong(s)  else None
   def float(s:String):Option[Float]   = if (isValid(s)) parseFloat(s) else None
   def str  (s:String):Option[String]  = if (isValid(s)) Option(s)     else None
   def bool (s:String):Option[Boolean] = if (isValid(s)) parseBool(s)  else None
 
   def parseInt(s:String):Option[Int] =
     try { Option(s.trim().toInt) } catch {
+      case e:NumberFormatException => None
+    }
+
+  def parseLong(s:String):Option[Long] =
+    try { Option(s.trim().toLong) } catch {
       case e:NumberFormatException => None
     }
 
@@ -48,7 +54,4 @@ object SchemaUtils {
   })
 
   def isValid(s:String) = !isNA(s)
-
-  //def na[S]:S = null.asInstanceOf[S]
-  //def na[S]:Option[S] = None
 }

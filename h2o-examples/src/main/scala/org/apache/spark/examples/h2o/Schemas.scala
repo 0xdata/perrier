@@ -1,7 +1,7 @@
 package org.apache.spark.examples.h2o
 
 /** Prostate schema definition. */
-case class Prostate(ID      :Option[Int]  ,
+case class Prostate(ID      :Option[Long]  ,
                     CAPSULE :Option[Int]  ,
                     AGE     :Option[Int]  ,
                     RACE    :Option[Int]  ,
@@ -16,7 +16,7 @@ case class Prostate(ID      :Option[Int]  ,
 object ProstateParse extends Serializable {
   def apply(row: Array[String]): Prostate = {
     import org.apache.spark.examples.h2o.SchemaUtils._
-    Prostate(int(row(0)), int(row(1)), int(row(2)), int(row(3)), int(row(4)), int(row(5)), float(row(6)), float(row(7)), int(row(8)) )
+    Prostate(long(row(0)), int(row(1)), int(row(2)), int(row(3)), int(row(4)), int(row(5)), float(row(6)), float(row(7)), int(row(8)) )
   }
 }
 

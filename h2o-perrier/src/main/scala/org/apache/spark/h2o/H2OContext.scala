@@ -126,8 +126,9 @@ object H2OContext {
   }
 
   private def dataTypeToClass(dt : DataType):Class[_] = dt match {
-    case BinaryType  => classOf[Integer]
-    case IntegerType => classOf[Integer]
+    case BinaryType  => classOf[java.lang.Integer]
+    case IntegerType => classOf[java.lang.Integer]
+    case LongType    => classOf[java.lang.Long]
     case FloatType   => classOf[java.lang.Float]
     case DoubleType  => classOf[java.lang.Double]
     case StringType  => classOf[String]
@@ -154,6 +155,7 @@ object H2OContext {
         if (row.isNullAt(i)) nchk.addNA()
         else types(i) match {
           case q if q==classOf[Integer]           => nchk.addNum(row.getInt(i))
+          case q if q==classOf[java.lang.Long]    => nchk.addNum(row.getLong(i))
           case q if q==classOf[java.lang.Double]  => nchk.addNum(row.getDouble(i))
           case q if q==classOf[java.lang.Float]   => nchk.addNum(row.getFloat(i))
           case q if q==classOf[java.lang.Boolean] => nchk.addNum(if (row.getBoolean(i)) 1 else 0)
