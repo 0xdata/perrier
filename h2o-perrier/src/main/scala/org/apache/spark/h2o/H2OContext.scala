@@ -17,12 +17,15 @@
 
 package org.apache.spark.h2o
 
+import java.io.File
+
+import com.google.common.io.Files
 import org.apache.spark.rdd.H2ORDD
 import org.apache.spark.sql.catalyst.types._
 import org.apache.spark.sql.{Row, SchemaRDD}
-import org.apache.spark.{SparkContext, TaskContext}
+import org.apache.spark._
 import water.parser.ValueString
-import water.{DKV, Key}
+import water._
 
 import scala.collection.mutable
 import scala.language.implicitConversions
@@ -36,8 +39,9 @@ import scala.reflect.runtime.universe._
  *
  * FIXME: unify path for RDD[A] and SchemaRDD
  */
-class H2OContext(@transient val sparkContext: SparkContext)
-  extends org.apache.spark.Logging
+class H2OContext (@transient val sparkContext: SparkContext) extends {
+    val sparkConf = sparkContext.getConf
+  } with org.apache.spark.Logging
   with H2OConf
   with Serializable {
 
@@ -65,6 +69,78 @@ class H2OContext(@transient val sparkContext: SparkContext)
                                   = H2OContext.toDataFrame(sparkContext, rdd)
 
   def toRDD[A <: Product: TypeTag: ClassTag]( fr : DataFrame ) : RDD[A] = new H2ORDD[A](this,fr)
+
+  type NodeDesc = (String, String, Int) // ExecutorId, IP, port
+
+  /** Initialize Sparkling H2O and start H2O cloud. */
+  def start(h2oWorkers:Option[Int] = None): H2OContext = {
+    //logDebug(super[H2OConf].toString)
+
+    // Create a dummy RDD and try to spread over all executors - this is really nasty hack !
+    val nworkers = h2oWorkers.getOrElse(numH2OWorkers)
+    val spreadRDD = sparkContext.parallelize(0 until drddMulFactor*nworkers,
+                                   drddMulFactor*nworkers).persist()
+    // Collect information about executors in Spark cluster
+    val nodes = collectNodesInfo(spreadRDD, basePort, incrPort)
+    logInfo("Sparkling H2O - flatfile: " + nodes.mkString(","))
+    // Verify that all executors participated in execution
+    if (nodes.map(_._1).distinct.length != nworkers) {
+      throw new IllegalArgumentException(
+        s"""Cannot execute H2O on all Spark executors: ${nodes.mkString(",")}
+           |Try to increase value in property ${PROP_DUMMY_RDD_MUL_FACTOR}
+           |(its value is currently: ${drddMulFactor})
+           |""".stripMargin
+        )
+    }
+    // FIXME put here handling flatfile
+    // Start H2O nodes
+    val executorStatus = H2OContext.startH2O(sparkContext, spreadRDD)
+    logInfo("Sparkling H2O - H2O status: " + executorStatus.mkString(","))
+    // Verify that all executors contain running H2O
+    if (!executorStatus.forall(x => x._2) || executorStatus.map(_._1).distinct.length != numH2OWorkers) {
+      throw new IllegalArgumentException("Cannot execute H2O on all Spark executors: " + executorStatus.mkString(","))
+    }
+    // Now connect to a cluster via H2O client,
+    // but only in non-local case
+    if (!sparkContext.isLocal) {
+      logTrace("Sparkling H2O - DISTRIBUTED mode: Waiting for " + numH2OWorkers)
+      H2OClient.main(Array())
+      H2O.finalizeRequest()
+      H2O.waitForCloudSize(numH2OWorkers, cloudTimeout)
+    } else {
+      logTrace("Sparkling H2O - LOCAL mode")
+      // Since LocalBackend does not wait for initialization (yet)
+      H2O.waitForCloudSize(1, cloudTimeout)
+    }
+
+    this
+  }
+
+  /** Generates and distributes a flatfile around Spark cluster. */
+  private def collectNodesInfo(distRDD: RDD[Int], basePort: Int, incrPort: Int): Array[NodeDesc] = {
+    // Collect flatfile - tuple of (IP, port)
+    val nodes = distRDD.map { index =>
+      ( SparkEnv.get.executorId,
+        java.net.InetAddress.getLocalHost.getAddress.map(_ & 0xFF).mkString("."),
+        (basePort+incrPort*index))
+    }.collect()
+    nodes
+  }
+
+  /* Save flatfile and distribute it over cluster. */
+  private def distributedFlatFile(nodes: Array[NodeDesc]):File = {
+    // Create a flatfile in a temporary directory and distribute it around cluster
+    val tmpDir = Files.createTempDir()
+    tmpDir.deleteOnExit()
+    val flatFile = new File(tmpDir, "flatfile.txt")
+    // Save flatfile
+    scala.tools.nsc.io.File(flatFile).writeAll(nodes.map(x=>x._2+":"+x._3).mkString("", "\n","\n"))
+    // Distribute the file around the Spark cluster via Spark infrastructure
+    // - the file will be fetched by Executors
+    sparkContext.addFile(flatFile.getAbsolutePath)
+    logTrace("Sparkling H2O flatfile is " + flatFile.getAbsolutePath)
+    flatFile
+  }
 }
 
 object H2OContext {
@@ -233,4 +309,19 @@ object H2OContext {
 
   def toRDD[A <: Product: TypeTag: ClassTag]
            ( h2oContext : H2OContext, fr : DataFrame ) : RDD[A] = new H2ORDD[A](h2oContext,fr)
+
+  private def startH2O(sc: SparkContext, spreadRDD: RDD[Int]): Array[(String,Boolean)] = {
+    spreadRDD.map { index =>
+      try {
+        H2O.START_TIME_MILLIS.synchronized {
+          if (H2O.START_TIME_MILLIS.get() == 0) {
+            H2O.main(Array())
+          }
+        }
+        (SparkEnv.get.executorId, true)
+      } catch {
+        case _: Throwable => (SparkEnv.get.executorId, false)
+      }
+    }.collect()
+  }
 }

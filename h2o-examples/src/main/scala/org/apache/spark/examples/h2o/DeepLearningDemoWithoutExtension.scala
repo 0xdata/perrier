@@ -4,49 +4,28 @@ import java.io.File
 
 import hex.deeplearning.DeepLearning
 import hex.deeplearning.DeepLearningModel.DeepLearningParameters
-import org.apache.spark.TaskContext
-import org.apache.spark.examples.h2o.DemoUtils.createSparkContext
+import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.h2o.H2OContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SQLContext
-import water.{H2O, H2OClientApp, H2OApp}
 import water.fvec.DataFrame
 
 
 object DeepLearningDemoWithoutExtension {
 
   def main(args: Array[String]): Unit = {
-    // Create Spark context which will drive computation.
-    val sc = createSparkContext(sparkMaster = "local-cluster[3,2,1024]", registerH2OExtension = false)
-    val numH2OWorkers = sc.getConf.getInt("spark.ext.h2o.cluster.size", 1)
-    println(s"===== WORKERS: $numH2OWorkers")
-    val dummyRDD = sc.parallelize(1 to numH2OWorkers, numH2OWorkers)
-    dummyRDD.partitions.foreach(p => {
-      val loc = dummyRDD.preferredLocations(p)
-      println(s"Partition: ${p.index}: ")
-      loc.foreach(println(_))
-    })
-    dummyRDD.map { index =>
-      val host = java.net.InetAddress.getLocalHost.getHostName
-    }.collect().foreach(println(_))
-    // Start H2O on workers
-    val h2oStatus = sc.runJob(dummyRDD, (tc:TaskContext, it:Iterator[Int]) => {
-      println("Running job on " + tc)
-      // FIXME: make sure that h2o is not initialized twice
-      H2OApp.main(Array())
-      H2O.waitForCloudSize(3, 60*1000)
-    })
+    // Configure this application
+    val conf = new SparkConf()
+      .setAppName("DL demo without Spark modification")
+    conf.setIfMissing("spark.master", sys.env.getOrElse("spark.master", "local"))
+    val localMode = conf.get("spark.master").equals("local") || conf.get("spark.master").startsWith("local[")
+    conf.setIfMissing("spark.ext.h2o.cluster.size",
+      if (localMode) "1" else sys.env.getOrElse("spark.h2o.workers", "3"))
 
-    if (!sc.isLocal) {
-      println("DISTRIB mode: Waiting for " + numH2OWorkers)
-      H2OClientApp.start()
-      H2O.waitForCloudSize(numH2OWorkers
-        , 60*1000)
-    } else {
-      println("LOCAL mode")
-      // Since LocalBackend does not wait for initialization (yet)
-      H2O.waitForCloudSize(1, 60*1000)
-    }
+    // Create SparkContext to execute application on Spark cluster
+    val sc = new SparkContext(conf)
+    val h2oContext = new H2OContext(sc).start()
+    import h2oContext._
 
     //
     // Load H2O from CSV file (i.e., access directly H2O cloud)
@@ -58,8 +37,6 @@ object DeepLearningDemoWithoutExtension {
     //
     // Use H2O to RDD transformation
     //
-    val h2oContext = new H2OContext(sc)
-    import h2oContext._
     val airlinesTable : RDD[Airlines] = toRDD[Airlines](airlinesData)
     println(s"\n===> Number of all flights via RDD#count call: ${airlinesTable.count()}\n")
     println(s"\n===> Number of all flights via H2O#Frame#count: ${airlinesData.numRows()}\n")
