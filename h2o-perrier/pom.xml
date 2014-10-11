@@ -61,7 +61,7 @@
   <dependencies>
     <dependency>
       <groupId>ai.h2o</groupId>
-      <artifactId>h2o-core</artifactId>
+      <artifactId>h2o-app</artifactId>
       <version>${h2o.version}</version>
       <exclusions>
         <exclusion>
