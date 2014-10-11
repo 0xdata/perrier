@@ -79,7 +79,7 @@ class H2ORDD[A <: Product: TypeTag: ClassTag] private (@transient val h2oContext
       })
 
       val chks = fr.getChunks(split.index)
-      val nrows = chks(0).len
+      val nrows = chks(0)._len
       var row : Int = 0
       val valStr = new ValueString() // dummy holder
       def hasNext: Boolean = row < nrows

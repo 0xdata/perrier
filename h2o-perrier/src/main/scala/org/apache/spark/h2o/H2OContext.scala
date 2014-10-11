@@ -18,12 +18,14 @@
 package org.apache.spark.h2o
 
 import java.io.File
+import java.util.Random
 
 import com.google.common.io.Files
 import org.apache.spark.rdd.H2ORDD
 import org.apache.spark.sql.catalyst.types._
 import org.apache.spark.sql.{Row, SchemaRDD}
 import org.apache.spark._
+import water.fvec.Vec
 import water.parser.ValueString
 import water._
 
@@ -63,6 +65,8 @@ class H2OContext (@transient val sparkContext: SparkContext) extends {
 
   implicit def dataFrameToKey(fr: Frame): Key = fr._key
 
+  implicit def symbolToString(sy: scala.Symbol): String = sy.name
+
   def toDataFrame(rdd: SchemaRDD) : DataFrame = H2OContext.toDataFrame(sparkContext, rdd)
 
   def toDataFrame[A <: Product : TypeTag](rdd: RDD[A]) : DataFrame
@@ -72,6 +76,8 @@ class H2OContext (@transient val sparkContext: SparkContext) extends {
 
   type NodeDesc = (String, String, Int) // ExecutorId, IP, port
 
+  /** Initialize Sparkling H2O and start H2O cloud with specified number of workers. */
+  def start(h2oWorkers: Int):H2OContext = start(Some(h2oWorkers))
   /** Initialize Sparkling H2O and start H2O cloud. */
   def start(h2oWorkers:Option[Int] = None): H2OContext = {
     //logDebug(super[H2OConf].toString)
@@ -80,6 +86,8 @@ class H2OContext (@transient val sparkContext: SparkContext) extends {
     val nworkers = h2oWorkers.getOrElse(numH2OWorkers)
     val spreadRDD = sparkContext.parallelize(0 until drddMulFactor*nworkers,
                                    drddMulFactor*nworkers).persist()
+
+    val cloudName = "sparkling-water-" + new Random().nextInt()
     // Collect information about executors in Spark cluster
     val nodes = collectNodesInfo(spreadRDD, basePort, incrPort)
     logInfo("Sparkling H2O - flatfile: " + nodes.mkString(","))
@@ -94,19 +102,22 @@ class H2OContext (@transient val sparkContext: SparkContext) extends {
     }
     // FIXME put here handling flatfile
     // Start H2O nodes
-    val executorStatus = H2OContext.startH2O(sparkContext, spreadRDD)
+    val executorStatus = H2OContext.startH2O(sparkContext, spreadRDD, cloudName)
     logInfo("Sparkling H2O - H2O status: " + executorStatus.mkString(","))
     // Verify that all executors contain running H2O
-    if (!executorStatus.forall(x => x._2) || executorStatus.map(_._1).distinct.length != numH2OWorkers) {
-      throw new IllegalArgumentException("Cannot execute H2O on all Spark executors: " + executorStatus.mkString(","))
+    if (!executorStatus.forall(x => x._2) || executorStatus.map(_._1).distinct.length != nworkers) {
+      throw new IllegalArgumentException(
+        s"""Cannot execute H2O on all Spark executors:
+           |  numH2OWorkers = ${nworkers}"
+           |  executorStatus = ${executorStatus.mkString(",")}""".stripMargin)
     }
     // Now connect to a cluster via H2O client,
     // but only in non-local case
     if (!sparkContext.isLocal) {
-      logTrace("Sparkling H2O - DISTRIBUTED mode: Waiting for " + numH2OWorkers)
-      H2OClient.main(Array())
+      logTrace("Sparkling H2O - DISTRIBUTED mode: Waiting for " + nworkers)
+      H2OClientApp.main(Array("-name", cloudName))
       H2O.finalizeRequest()
-      H2O.waitForCloudSize(numH2OWorkers, cloudTimeout)
+      H2O.waitForCloudSize(nworkers, cloudTimeout)
     } else {
       logTrace("Sparkling H2O - LOCAL mode")
       // Since LocalBackend does not wait for initialization (yet)
@@ -147,14 +158,13 @@ object H2OContext {
 
   /** Transform SchemaRDD into H2O DataFrame */
   def toDataFrame(sc: SparkContext, rdd: SchemaRDD) : DataFrame = {
+    val keyName = "frame_rdd_"+rdd.id // There are uniq IDs for RDD
     val fnames = rdd.schema.fieldNames.toArray
     val ftypes = rdd.schema.fields.map( field => dataTypeToClass(field.dataType) ).toArray
 
     // Collect domains for String columns
     val fdomains = collectColumnDomains(sc, rdd, fnames, ftypes)
 
-    val keyName = Key.rand // FIXME put there a name based on RDD
-    // FIXME: expects number of partitions > 0
     initFrame(keyName, fnames)
 
     // Eager, not lazy, evaluation
@@ -177,8 +187,28 @@ object H2OContext {
                                colTypes: Array[Class[_]],
                                colDomains: Array[Array[String]]):Frame = {
     val fr:Frame = DKV.get(keyName).get.asInstanceOf[Frame]
-    fr.finalizePartialFrame(res, colTypes, colDomains)
+    val colH2OTypes = colTypes.indices.map(idx => {
+      val typ = translateToH2OType(colTypes(idx), colDomains(idx))
+      if (typ==Vec.T_STR) colDomains(idx) = null // minor clean-up
+      typ
+    }).toArray
+    fr.finalizePartialFrame(res, colDomains, colH2OTypes)
     fr
+  }
+
+  private def translateToH2OType(t: Class[_], d: Array[String]):Byte = {
+    t match {
+      case q if q==classOf[java.lang.Short]   => Vec.T_NUM
+      case q if q==classOf[java.lang.Integer] => Vec.T_NUM
+      case q if q==classOf[java.lang.Long]    => Vec.T_NUM
+      case q if q==classOf[java.lang.Float]   => Vec.T_NUM
+      case q if q==classOf[java.lang.Double]  => Vec.T_NUM
+      case q if q==classOf[java.lang.Boolean] => Vec.T_NUM
+      case q if q==classOf[java.lang.String]  => if (d.length < water.parser.Enum.MAX_ENUM_SIZE)
+                                                    Vec.T_ENUM
+                                                 else Vec.T_STR
+      case _ => !!!
+    }
   }
 
   /** Transform typed RDD into H2O DataFrame */
@@ -250,7 +280,7 @@ object H2OContext {
     // Compress & write out the Partition/Chunks
     water.fvec.Frame.closeNewChunks(nchks)
     // Return Partition# and rows in this Partition
-    (context.partitionId,nchks(0).len)
+    (context.partitionId,nchks(0)._len)
   }
 
   private
@@ -274,7 +304,7 @@ object H2OContext {
     // Compress & write out the Partition/Chunks
     water.fvec.Frame.closeNewChunks(nchks)
     // Return Partition# and rows in this Partition
-    (context.partitionId,nchks(0).len)
+    (context.partitionId,nchks(0)._len)
   }
 
   private def collectColumnDomains(sc: SparkContext,
@@ -310,17 +340,23 @@ object H2OContext {
   def toRDD[A <: Product: TypeTag: ClassTag]
            ( h2oContext : H2OContext, fr : DataFrame ) : RDD[A] = new H2ORDD[A](h2oContext,fr)
 
-  private def startH2O(sc: SparkContext, spreadRDD: RDD[Int]): Array[(String,Boolean)] = {
+  private def startH2O(sc: SparkContext, spreadRDD: RDD[Int], cloudName: String): Array[(String,Boolean)] = {
     spreadRDD.map { index =>
       try {
         H2O.START_TIME_MILLIS.synchronized {
           if (H2O.START_TIME_MILLIS.get() == 0) {
-            H2O.main(Array())
+            H2OApp.main(Array("-name", cloudName))
+          } else {
+            println("H2O seems already started...")
           }
         }
         (SparkEnv.get.executorId, true)
       } catch {
-        case _: Throwable => (SparkEnv.get.executorId, false)
+        case e: Throwable => {
+          e.printStackTrace()
+          println(s"Cannot start H2O node because: ${e.getMessage}")
+          (SparkEnv.get.executorId, false)
+        }
       }
     }.collect()
   }
