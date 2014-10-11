@@ -66,7 +66,7 @@ object DeepLearningDemoWithoutExtension {
     dlParams._training_frame = result( 'Year, 'Month, 'DayofMonth, 'DayOfWeek, 'CRSDepTime, 'CRSArrTime,
                                     'UniqueCarrier, 'FlightNum, 'TailNum, 'CRSElapsedTime, 'Origin, 'Dest,
                                     'Distance, 'IsDepDelayed)
-    dlParams.response_column = 'IsDepDelayed.name
+    dlParams.response_column = 'IsDepDelayed
     dlParams.classification = true
 
     // ---- DEBUG

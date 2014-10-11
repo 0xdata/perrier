@@ -53,7 +53,7 @@ private[h2o] object DemoUtils {
     new MRTask {
       override def map(cs: Array[Chunk]): Unit = {
         println ("Chunks: " + cs.mkString(","))
-        for (r <- 0 until cs(0).len()) {
+        for (r <- 0 until cs(0)._len) {
           for (c <- cs) {
             val vstr = new ValueString
             if (c.vec().isString) {
