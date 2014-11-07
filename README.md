@@ -1,3 +1,16 @@
+
+# The perrier repository is now obsolete!
+
+The perrier repository existed for the development of hooks to launch the Sparkling Water application jar on Spark.  We discovered a way to do this on an unchanged Spark 1.1 distribution directly.
+
+## Please visit <https://github.com/0xdata/sparkling-water>
+
+---
+
+---
+
+---
+
 # Apache Spark
 
 Spark is a fast and general cluster computing system for Big Data. It provides
